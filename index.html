@@ -1,0 +1,3542 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ライフプランシミュレーター</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;--surface:#ffffff;--surface2:#f0efe9;--border:#e0ddd4;--border2:#ccc9bc;
+  --text:#1a1916;--text2:#6b6860;--text3:#9e9c96;
+  --green:#1a8a5a;--green-bg:#e8f5ee;--red:#c0392b;--red-bg:#fdf0ee;
+  --amber:#b06a00;--amber-bg:#fdf3e3;--blue:#1a5fa8;--blue-bg:#e8f1fb;
+  --radius:8px;--radius-lg:12px;
+}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+
+/* ── Layout ── */
+.app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;height:56px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+.app-header h1{font-size:16px;font-weight:700;letter-spacing:0.02em}
+.app-header .version{font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:20px}
+.run-btn-top{margin-left:auto;padding:8px 20px;background:var(--text);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit}
+.run-btn-top:hover{background:#333}
+
+.layout{display:grid;grid-template-columns:500px 1fr;height:calc(100vh - 56px)}
+.sidebar{overflow-y:auto;border-right:1px solid var(--border);background:var(--surface)}
+.main{overflow-y:auto;padding:24px 32px;background:var(--bg)}
+@media (max-width:1366px){
+  .layout{grid-template-columns:1fr;height:auto}
+  .sidebar{border-right:none;border-bottom:1px solid var(--border);max-height:none}
+  .main{padding:20px 16px}
+}
+
+/* ── Sidebar sections ── */
+.sb-sec{border-bottom:1px solid var(--border);padding:20px 24px}
+.sb-sec-title{font-size:12px;font-weight:700;letter-spacing:0.06em;color:var(--text3);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.sb-sec-title svg{width:14px;height:14px;stroke:var(--text3);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:12px;color:var(--text2);line-height:1.4;font-weight:500}
+.fld input,.fld select{width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:inherit}
+/* 生年月日など横並び入力欄のスピナー非表示 */
+.bd-num{-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield;text-align:center}
+.bd-num::-webkit-inner-spin-button,.bd-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.fld input:focus,.fld select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(26,95,168,0.1)}
+.pair-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pcol{background:var(--surface2);border-radius:var(--radius);padding:14px}
+.pcol-title{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:4px;color:var(--text)}
+.add-btn{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--blue);background:none;border:none;cursor:pointer;padding:6px 0;font-family:inherit;margin-top:6px}
+.add-btn:hover{opacity:0.7}
+.del-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:0;line-height:1;margin-bottom:2px}
+.del-btn:hover{color:var(--red)}
+.note{font-size:12px;color:var(--text3);margin-top:6px;line-height:1.5}
+.sec-sub{font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+/* ── Ins blocks ── */
+.ins-block{border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;background:var(--surface)}
+.ins-g{display:grid;gap:10px}
+.inv-row-grid{display:grid;grid-template-columns:1.3fr 1fr 0.8fr 1fr 0.8fr 24px;gap:8px;align-items:end;margin-bottom:10px}
+.tag{display:inline-flex;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:2px}
+.tag-term{background:var(--blue-bg);color:var(--blue)}
+.tag-inc{background:var(--amber-bg);color:var(--amber)}
+.tag-usd{background:#f0fff4;color:#1a7a3a;border:1px solid #a3d9a5}
+.tag-med{background:#e6f4f0;color:#0e7b5a}
+.tag-can{background:#fdecea;color:#8b0000}
+.tag-care{background:#f0eaf8;color:#5c3a8e}
+.tag-dmg{background:#fdf6e3;color:#7a5c00}
+
+/* ── Edu table ── */
+.edu-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.edu-table th{padding:6px 8px;background:var(--surface2);text-align:center;font-weight:700;border:1px solid var(--border);font-size:11px}
+.edu-table td{padding:5px 8px;text-align:center;border:1px solid var(--border)}
+.edu-table td:first-child{text-align:left;color:var(--text2)}
+.edu-input{width:90px;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;text-align:right;font-family:inherit;background:var(--surface);color:var(--text)}
+
+/* ── Child edu tabs ── */
+.child-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.child-tab{padding:5px 16px;font-size:12px;border:1px solid var(--border);border-radius:20px;cursor:pointer;background:transparent;color:var(--text2);font-family:inherit;font-weight:500}
+.child-tab.on{background:var(--text);color:#fff;border-color:var(--text)}
+
+/* ── Living groups ── */
+.living-group{background:var(--surface2);border-radius:var(--radius);padding:12px;margin-bottom:10px}
+.living-group-title{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px}
+
+/* ── Main area ── */
+.results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.results-header h2{font-size:18px;font-weight:700}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.mlabel{font-size:11px;color:var(--text2);margin-bottom:4px}
+.mval{font-size:17px;font-weight:700}
+.mval.g{color:var(--green)}.mval.r{color:var(--red)}
+
+.warn-box{background:var(--amber-bg);border:1px solid #e8a000;border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--amber);margin-bottom:16px;display:none}
+.info-box{background:var(--blue-bg);border:1px solid #9dc0e8;border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--blue);margin-top:12px}
+
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:6px 14px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;background:transparent;color:var(--text2);font-family:inherit}
+.tab.on{background:var(--text);color:#fff;border-color:var(--text)}
+
+.panel{display:none}
+.panel.on{display:block}
+
+.chart-wrap{position:relative;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.chart-canvas-box{position:relative;width:100%;height:440px}
+.chart-canvas-box canvas{display:block}
+@media (max-width:1366px){.chart-canvas-box{height:380px}}
+@media (max-width:640px){.chart-canvas-box{height:320px}}
+.legend-box{display:flex;gap:16px;font-size:12px;color:var(--text2);margin-bottom:10px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.legend-line{width:16px;height:2px;flex-shrink:0}
+
+.cft-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.cft{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.cft th{text-align:right;padding:5px 8px;color:var(--text2);font-weight:500;border-bottom:1px solid var(--border);font-size:11px}
+.cft th:first-child,.cft td:first-child{text-align:left}
+.cft td{text-align:right;padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.cft td:first-child{color:var(--text2)}
+.cft tr.hl td{background:#edf4ff}
+.cft tr.rd td{background:#fdf0ee}
+
+.ev-list{display:flex;flex-direction:column;gap:6px}
+.ev-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px}
+.ev-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.ev-age{font-size:12px;color:var(--text2);min-width:55px}
+
+.inv-cards,.ins-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.card-title{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.card-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
+.card-row:last-child{border-bottom:none}
+.card-row .lbl{color:var(--text2)}
+.card-row .val{font-weight:500}
+.card-row .val.g{color:var(--green)}.card-row .val.r{color:var(--red)}
+
+.req-chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px}
+.req-chart-title{font-size:13px;font-weight:700;margin-bottom:4px}
+.req-chart-sub{font-size:11px;color:var(--text3);margin-bottom:14px}
+.req-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.req-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.req-legend-dot{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.req-gauge-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.req-gauge{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.req-gauge-title{font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.req-gauge-ring{position:relative;width:100px;height:100px;margin:0 auto 10px}
+.req-gauge-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.req-gauge-ring .ring-bg{fill:none;stroke:var(--border);stroke-width:10}
+.req-gauge-ring .ring-fg{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dasharray .6s ease}
+.req-gauge-pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.req-gauge-pct .num{font-size:18px;font-weight:700;line-height:1}
+.req-gauge-pct .lbl{font-size:10px;color:var(--text3)}
+.req-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.req-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.req-card-title{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.req-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
+.req-row:last-child{border-bottom:none}
+.req-row .lbl{color:var(--text2)}
+.req-row .val{font-weight:500}
+.req-row .val.g{color:var(--green)}.req-row .val.r{color:var(--red)}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.badge.ok{background:var(--green-bg);color:var(--green)}
+.badge.ng{background:var(--red-bg);color:var(--red)}
+.badge.warn{background:var(--amber-bg);color:var(--amber)}
+.cov-bar{height:10px;border-radius:5px;background:var(--border);margin:8px 0;overflow:hidden}
+.cov-fill{height:100%;border-radius:5px}
+.shortage-box{margin-top:8px;padding:8px 10px;border-radius:var(--radius);font-size:12px}
+.shortage-box.bad{background:var(--red-bg);color:var(--red)}
+.shortage-box.good{background:var(--green-bg);color:var(--green)}
+
+/* ── Run button (bottom) ── */
+.run-btn{width:100%;padding:12px;background:var(--text);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px}
+.run-btn:hover{background:#333}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── Pension est note ── */
+#selfEst,#spEst{font-size:11px;color:var(--text2);margin-top:4px}
+
+/* ── PDF / Print ── */
+/* ── Data Manager Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.hidden{display:none}
+.modal{background:var(--surface);border-radius:var(--radius-lg);width:560px;max-width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-head{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.modal-head h3{font-size:15px;font-weight:700}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1;padding:0}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:16px 20px;overflow-y:auto;flex:1}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+.save-name-row{display:flex;gap:8px;margin-bottom:14px}
+.save-name-row input{flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:inherit}
+.save-name-row input:focus{outline:none;border-color:var(--blue)}
+.slot-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.slot-item{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;background:var(--surface2)}
+.slot-item:hover{border-color:var(--blue);background:var(--blue-bg)}
+.slot-info{flex:1;min-width:0}
+.slot-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.slot-btn{padding:4px 10px;font-size:12px;border-radius:var(--radius);border:1px solid;cursor:pointer;font-family:inherit;white-space:nowrap}
+.slot-btn.load{background:var(--blue-bg);color:var(--blue);border-color:var(--blue)}
+.slot-btn.load:hover{background:var(--blue);color:#fff}
+.slot-btn.save{background:var(--green-bg,#e6f7ed);color:var(--green,#1b9e58);border-color:var(--green,#1b9e58)}
+.slot-btn.save:hover{background:var(--green,#1b9e58);color:#fff}
+.slot-btn.export{background:var(--amber-bg,#fdf3e0);color:var(--amber,#b06a00);border-color:var(--amber,#b06a00)}
+.slot-btn.export:hover{background:var(--amber,#b06a00);color:#fff}
+.slot-btn.del{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.slot-btn.del:hover{background:var(--red);color:#fff}
+.io-row{display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border)}
+.io-btn{flex:1;padding:8px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border);cursor:pointer;font-family:inherit;background:var(--surface);display:flex;align-items:center;justify-content:center;gap:5px}
+.io-btn:hover{background:var(--surface2)}
+.modal-btn{padding:8px 18px;font-size:13px;border-radius:var(--radius);border:none;cursor:pointer;font-family:inherit;font-weight:500}
+.modal-btn.primary{background:var(--text);color:#fff}
+.modal-btn.primary:hover{background:#333}
+.modal-btn.cancel{background:var(--surface2);color:var(--text)}
+.modal-btn.cancel:hover{background:var(--border)}
+.empty-note{text-align:center;padding:24px 0;color:var(--text3);font-size:13px}
+
+@page{size:A4;margin:12mm}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;font-size:11px;margin:0;padding:0}
+  .pdf-cover{height:245mm;min-height:0!important;max-height:245mm;padding:14mm 14mm!important;overflow:hidden!important}
+  .pdf-cover .cv-title{font-size:38px!important}
+  .pdf-cover .cv-name{font-size:28px!important}
+  .pdf-cover .cv-name .cv-sama{font-size:18px!important}
+  .pdf-cover .cv-name-wrap{margin-top:32px!important;padding:18px 40px!important}
+  .pdf-cover::before{width:240px;height:240px;top:-90px;right:-60px}
+  .pdf-cover::after{height:110px}
+  .app-header,.sidebar{display:none!important}
+  .layout{display:block!important}
+  .main{overflow:visible!important;padding:0!important;background:#fff!important}
+  #placeholder{display:none!important}
+  #results{display:block!important}
+  .tabs{display:none!important}
+  .panel{display:block!important;page-break-inside:avoid}
+  .chart-wrap,.req-chart-wrap{page-break-inside:avoid;margin-bottom:12px}
+  .pdf-section{display:block!important}
+  .pdf-hide{display:none!important}
+  .pdf-page-break{page-break-before:always}
+  .metric-grid{grid-template-columns:repeat(4,1fr)!important}
+  .req-pair{grid-template-columns:1fr 1fr!important}
+  .req-gauge-wrap{grid-template-columns:1fr 1fr!important}
+  .cft-wrap{overflow:visible!important}
+  .cft{font-size:9px}
+  .cft th,.cft td{padding:3px 4px!important}
+  canvas{max-width:100%!important}
+  h2{font-size:14px!important;margin-bottom:8px}
+  .pdf-header{display:flex!important}
+  .pdf-cover{display:flex!important}
+  .warn-box{display:block!important}
+  a{text-decoration:none}
+}
+/* 印刷プレビューオーバーレイ */
+#printPreviewOverlay{display:none;position:fixed;inset:0;z-index:9000;background:#525659;flex-direction:column}
+#printPreviewOverlay.active{display:flex}
+#printPreviewToolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#3c3f41;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+#printPreviewToolbar .pp-title{flex:1;font-size:14px;font-weight:700;letter-spacing:.05em}
+#printPreviewToolbar button{padding:7px 18px;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.pp-btn-print{background:#2bb673;color:#fff}
+.pp-btn-print:hover{background:#229a5e}
+.pp-btn-close{background:#555;color:#fff}
+.pp-btn-close:hover{background:#777}
+.pp-zoom-group{display:flex;align-items:center;gap:6px;font-size:13px}
+.pp-zoom-group button{padding:5px 10px;background:#555;color:#fff;border-radius:4px}
+.pp-zoom-group button:hover{background:#888}
+#printPreviewBody{flex:1;overflow-y:auto;overflow-x:auto;display:flex;justify-content:center;align-items:flex-start;padding:24px}
+#printPreviewPageWrap{display:inline-block;transform-origin:top center;transition:transform .15s}
+#printPreviewPage{background:#fff;width:210mm;min-height:297mm;box-shadow:0 4px 24px rgba(0,0,0,.5);overflow:visible}
+#printPreviewPage *{max-width:100%;box-sizing:border-box}
+#printPreviewPage canvas{width:100%!important;height:auto!important}
+#printPreviewPage table{width:100%;table-layout:fixed;word-break:break-all}
+#printPreviewPage .cft-wrap,#printPreviewPage .chart-wrap,#printPreviewPage .req-chart-wrap{overflow:hidden;width:100%}
+@media print{#printPreviewOverlay{display:none!important}}
+/* PDF表紙（印刷時のみ表示） */
+.pdf-cover{display:none;flex-direction:column;justify-content:space-between;min-height:96vh;page-break-after:always;box-sizing:border-box;padding:44px 40px 36px;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,#e3f6ff 0%,#eafaf1 45%,#fff7e6 100%);
+  color:#1b3a4b}
+/* 装飾：上部の空と太陽、下部の丘 */
+.pdf-cover::before{content:"";position:absolute;top:-120px;right:-80px;width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle,#ffe27a 0%,#ffd24d 40%,rgba(255,210,77,0) 72%);opacity:.85}
+.pdf-cover::after{content:"";position:absolute;left:0;right:0;bottom:0;height:150px;
+  background:linear-gradient(180deg,rgba(67,206,162,0) 0%,#43cea2 60%,#2bb673 100%);
+  border-radius:60% 40% 0 0/100% 100% 0 0;opacity:.9}
+.pdf-cover>*{position:relative;z-index:1}
+.pdf-cover .cv-top{display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;letter-spacing:0.12em;color:#2b8aa6;font-weight:600}
+.pdf-cover .cv-rule{height:4px;border-radius:4px;background:linear-gradient(90deg,#36d1dc 0%,#5b86e5 50%,#43cea2 100%);margin:12px 0 0}
+.pdf-cover .cv-mid{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:6px}
+.pdf-cover .cv-kicker{font-size:13px;letter-spacing:0.5em;color:#2bb673;font-weight:700;margin-left:0.5em}
+.pdf-cover .cv-title{font-size:46px;font-weight:800;letter-spacing:0.18em;margin-left:0.18em;line-height:1.2;
+  background:linear-gradient(90deg,#1d8fc4 0%,#2bb673 60%,#5b86e5 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#1d8fc4}
+.pdf-cover .cv-sub{font-size:13px;letter-spacing:0.32em;color:#3a8fa8;margin-top:2px;margin-left:0.32em}
+.pdf-cover .cv-name-wrap{margin-top:48px;padding:24px 56px;border-radius:18px;
+  background:rgba(255,255,255,0.72);border:1px solid #bfe8e0;box-shadow:0 6px 20px rgba(43,182,115,0.15)}
+.pdf-cover .cv-name-label{font-size:12px;letter-spacing:0.3em;color:#2bb673;font-weight:700;margin-bottom:8px}
+.pdf-cover .cv-name{font-size:34px;font-weight:700;letter-spacing:0.14em;color:#15485e}
+.pdf-cover .cv-name .cv-sama{font-size:22px;font-weight:500;margin-left:0.4em;color:#3a8fa8}
+.pdf-cover .cv-family{margin-top:18px;font-size:12px;letter-spacing:0.08em;color:#3a6473;line-height:1.9}
+.pdf-cover .cv-bottom{display:flex;justify-content:space-between;align-items:flex-end;font-size:11px;color:#1b3a4b}
+.pdf-cover .cv-bottom .cv-note{max-width:60%;line-height:1.6;color:#2f5d44}
+.pdf-cover .cv-bottom .cv-brand{font-weight:700;letter-spacing:0.2em;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.15)}
+/* PDF専用要素（通常表示では非表示） */
+.pdf-header{display:none;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1916;padding-bottom:8px;margin-bottom:16px}
+.pdf-section{display:none}
+.pdf-section-title{font-size:12px;font-weight:700;letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.pdf-sum-block{margin-bottom:14px;page-break-inside:avoid}
+.pdf-sum-h{font-size:13px;font-weight:700;color:#15485e;background:linear-gradient(90deg,#eafaf1,#e3f6ff);border-left:4px solid #2bb673;padding:5px 10px;margin-bottom:6px;border-radius:3px}
+.pdf-sum-table{width:100%;border-collapse:collapse;font-size:11px}
+.pdf-sum-table th,.pdf-sum-table td{border:1px solid #d8d2c4;padding:4px 8px;text-align:left;vertical-align:top}
+.pdf-sum-table th{background:#f6f4ee;font-weight:700;color:#5a564e;width:34%;white-space:nowrap}
+.pdf-sum-table td{color:#1a1916}
+.src-intro{font-size:11px;line-height:1.7;color:#3a4650;margin:6px 0 12px}
+.src-table th{background:#eef4f8;color:#15485e}
+.src-table td{font-size:11px;line-height:1.6}
+.src-note{font-size:10px;line-height:1.7;color:#6a6a6a;margin-top:10px}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+  <h1>ライフプランシミュレーター</h1>
+  <span class="version">v7.0</span>
+  <button class="run-btn-top" onclick="openDataModal()" style="background:#2c7a4b;margin-left:auto">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    データ管理
+  </button>
+  <button class="run-btn-top" onclick="runSim()" style="margin-left:8px">▶ シミュレーション実行</button>
+  <button class="run-btn-top" id="pdfBtn" onclick="exportPDF()" style="background:#c0392b;margin-left:8px" disabled title="シミュレーション実行後にPDF出力できます">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    PDF出力
+  </button>
+</header>
+
+<div class="layout">
+<!-- ════════════════ SIDEBAR ════════════════ -->
+<div class="sidebar">
+
+<!-- 基本設定 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">基本設定・世帯情報</div>
+  <div class="g2" style="margin-bottom:6px">
+    <div class="fld"><label>本人の氏名</label><input type="text" id="selfName" value="" placeholder="例：田中 太郎"></div>
+    <div class="fld"><label>配偶者の氏名</label><input type="text" id="spName" value="" placeholder="例：田中 花子"></div>
+  </div>
+  <div class="g2" style="margin-bottom:6px">
+    <div class="fld"><label>本人の生年月日</label><div style="display:flex;gap:4px;align-items:center"><input type="number" id="custSelfBY" class="bd-num" min="1940" max="2010" style="width:68px" placeholder="1986" oninput="updateAgeDisp('self')"><span style="font-size:12px;color:var(--text2)">年</span><input type="number" id="custSelfBM" class="bd-num" min="1" max="12" style="width:38px" placeholder="1" oninput="updateAgeDisp('self')"><span style="font-size:12px;color:var(--text2)">月</span><input type="number" id="custSelfBD" class="bd-num" min="1" max="31" style="width:38px" placeholder="1"><span style="font-size:12px;color:var(--text2)">日</span></div><div id="selfAgeDisp" style="font-size:12px;color:var(--text3);margin-top:2px"></div></div>
+    <div class="fld"><label>配偶者の生年月日</label><div style="display:flex;gap:4px;align-items:center"><input type="number" id="custSpBY" class="bd-num" min="1940" max="2010" style="width:68px" placeholder="1988" oninput="updateAgeDisp('sp')"><span style="font-size:12px;color:var(--text2)">年</span><input type="number" id="custSpBM" class="bd-num" min="1" max="12" style="width:38px" placeholder="1" oninput="updateAgeDisp('sp')"><span style="font-size:12px;color:var(--text2)">月</span><input type="number" id="custSpBD" class="bd-num" min="1" max="31" style="width:38px" placeholder="1"><span style="font-size:12px;color:var(--text2)">日</span></div><div id="spAgeDisp" style="font-size:12px;color:var(--text3);margin-top:2px"></div></div>
+  </div>
+  <div class="g2" style="margin-bottom:10px">
+    <div class="fld"><label>本人の性別</label><select id="selfGender"><option value="male">男性</option><option value="female">女性</option></select></div>
+    <div class="fld"><label>配偶者の性別</label><select id="spGender"><option value="female">女性</option><option value="male">男性</option></select></div>
+  </div>
+  <div class="g2" style="margin-bottom:10px">
+    <div class="fld"><label>作成日（入力日）</label><input type="date" id="planDate" oninput="updateAgeDisp('self');updateAgeDisp('sp');calcLoan()"></div>
+  </div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>満了年齢（歳）</label><input type="number" id="endAge" value="100" min="60" max="100"></div>
+    <div class="fld"><label>インフレ率（%）</label><input type="number" id="inflationRate" value="1.0" step="0.1" min="0" max="10"></div>
+    <div class="fld"><label>子供の人数</label><select id="children" onchange="updateChildInputs()"><option value="0">なし</option><option value="1">1人</option><option value="2" selected>2人</option><option value="3">3人</option><option value="4">4人</option><option value="5">5人</option></select></div>
+  </div>
+  <div id="childBirthdates"></div>
+</div>
+
+<!-- 収入・退職金 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">基本情報・収入・退職金</div>
+  <div class="pair-cols">
+    <div class="pcol">
+      <div class="pcol-title" id="selfColTitle">本人</div>
+      <input type="hidden" id="selfBirthYear" value="1986">
+      <input type="hidden" id="selfBirthMonth" value="1">
+      <div class="fld" style="margin-bottom:8px"><label>年収（円）</label><input type="number" id="selfIncome" value="8000000" step="100000" oninput="calcSocialInsurance('self');syncAvgSalaryFromIncome('self')"></div>
+      <div class="fld" style="margin-bottom:8px"><label>収入上昇率（%/年）</label><input type="number" id="selfIncomeGrowth" value="1.0" step="0.5"></div>
+      <div class="fld" style="margin-bottom:8px"><label>副業・その他（円/年）</label><input type="number" id="selfSideIncome" value="0" step="100000"></div>
+      <div class="fld" style="margin-bottom:8px"><label>退職年齢</label><input type="number" id="selfRetireAge" value="65"></div>
+      <div class="fld"><label>退職金（円）</label><input type="number" id="selfSeverance" value="0" step="1000000"></div>
+      <div id="selfInsEst" class="note" style="margin-top:6px;background:var(--surface2);padding:6px 8px;border-radius:var(--radius)"></div>
+    </div>
+    <div class="pcol">
+      <div class="pcol-title" id="spColTitle">配偶者</div>
+      <input type="hidden" id="spBirthYear" value="1988">
+      <input type="hidden" id="spBirthMonth" value="1">
+      <div class="fld" style="margin-bottom:8px"><label>年収（円）</label><input type="number" id="spIncome" value="0" step="100000" oninput="calcSocialInsurance('sp');syncAvgSalaryFromIncome('sp')"></div>
+      <div class="fld" style="margin-bottom:8px"><label>収入上昇率（%/年）</label><input type="number" id="spIncomeGrowth" value="0.5" step="0.5"></div>
+      <div class="fld" style="margin-bottom:8px"><label>副業・その他（円/年）</label><input type="number" id="spSideIncome" value="0" step="100000"></div>
+      <div class="fld" style="margin-bottom:8px"><label>退職年齢</label><input type="number" id="spRetireAge" value="65"></div>
+      <div class="fld"><label>退職金（円）</label><input type="number" id="spSeverance" value="0" step="1000000"></div>
+      <div id="spInsEst" class="note" style="margin-top:6px;background:var(--surface2);padding:6px 8px;border-radius:var(--radius)"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 教育 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">教育費（年額・円 ／ 子供別設定）</div>
+  <div id="eduChildTabs" class="child-tabs" style="display:none"></div>
+  <div id="eduChildPanels"><p class="note">子供の人数を設定してください</p></div>
+  <p class="note" style="margin-top:8px">※ 各金額は年額（円）。子供ごとに個別設定可。</p>
+</div>
+
+<!-- 児童手当・その他収入 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">児童手当・その他収入（年額・円）</div>
+  <div class="g2" style="margin-bottom:10px">
+    <div class="fld"><label>児童手当（自動計算）</label><input type="number" id="childAllowanceAuto" value="0" step="10000" readonly style="background:var(--surface2);color:var(--text2)"></div>
+    <div class="fld"><label>その他収入（年額）</label><input type="number" id="otherIncome" value="0" step="10000"></div>
+  </div>
+  <div class="note" id="childAllowanceNote">※ 子供の年齢・人数から児童手当を自動試算します。</div>
+</div>
+
+<!-- 現在のローン・直近出費 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">現在の借入・直近の大きな出費</div>
+  <div class="sec-sub">🏦 住宅ローン以外の借入</div>
+  <div id="loanExtraList"></div>
+  <button class="add-btn" onclick="addLoanExtra()">＋ 借入を追加</button>
+  <div class="sec-sub" style="margin-top:14px">📅 予定している大きな出費（ライフイベント）</div>
+  <div id="lifeEventList"></div>
+  <button class="add-btn" onclick="addLifeEvent()">＋ ライフイベントを追加</button>
+  <p class="note" style="margin-top:8px">※ 車購入・リフォーム・旅行・進学費用など任意の出費を年単位で入力してください。</p>
+</div>
+
+<!-- 生活費 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">生活費（月額・円）</div>
+
+  <div class="fld" style="margin-bottom:12px"><label>入力方法</label>
+    <select id="livingMode" onchange="toggleLivingMode()">
+      <option value="detail" selected>詳細入力（項目別）</option>
+      <option value="simple">簡易入力（合計のみ）</option>
+    </select>
+  </div>
+
+  <div id="livingSimpleBox" style="display:none">
+    <div class="fld"><label>月額生活費の合計（円）</label><input type="number" id="cSimple" value="280000" step="10000" oninput="updateLivingTotal()"></div>
+    <p class="note" style="margin-top:6px">※ 項目別の把握が難しい場合は、月々の生活費の合計額（住居費を除く）を入力してください。</p>
+  </div>
+
+  <div id="livingDetailBox">
+  <div class="living-group">
+    <div class="living-group-title">🍽 食費・日用品</div>
+    <div class="g3">
+      <div class="fld"><label>食費</label><input type="number" id="cFood" value="80000" step="5000"></div>
+      <div class="fld"><label>日用品・消耗品</label><input type="number" id="cDaily" value="20000" step="1000"></div>
+      <div class="fld"><label>外食・テイクアウト</label><input type="number" id="cDining" value="20000" step="1000"></div>
+    </div>
+  </div>
+
+  <div class="living-group">
+    <div class="living-group-title">💡 光熱費・通信費</div>
+    <div class="g4">
+      <div class="fld"><label>電気代</label><input type="number" id="cElec" value="12000" step="1000"></div>
+      <div class="fld"><label>ガス代</label><input type="number" id="cGas" value="7000" step="500"></div>
+      <div class="fld"><label>水道代</label><input type="number" id="cWater" value="4000" step="500"></div>
+      <div class="fld"><label>通信費</label><input type="number" id="cComm" value="10000" step="1000"></div>
+    </div>
+  </div>
+
+  <div class="living-group">
+    <div class="living-group-title">🚗 交通・車両費</div>
+    <div class="g3">
+      <div class="fld"><label>交通費（電車・バス）</label><input type="number" id="cTransport" value="15000" step="1000"></div>
+      <div class="fld"><label>車両費（燃料・保険等）</label><input type="number" id="cCar" value="20000" step="1000"></div>
+      <div class="fld"><label>駐車場代</label><input type="number" id="cParking" value="0" step="1000"></div>
+    </div>
+  </div>
+
+  <div class="living-group">
+    <div class="living-group-title">🎭 娯楽・交際費</div>
+    <div class="g3">
+      <div class="fld"><label>娯楽・趣味</label><input type="number" id="cLeisure" value="20000" step="1000"></div>
+      <div class="fld"><label>交際費・冠婚葬祭</label><input type="number" id="cSocial" value="10000" step="1000"></div>
+      <div class="fld"><label>お小遣い</label><input type="number" id="cAllowance" value="0" step="1000"></div>
+      <div class="fld"><label>旅行・レジャー</label><input type="number" id="cTravel" value="15000" step="1000"></div>
+    </div>
+  </div>
+
+  <div class="living-group">
+    <div class="living-group-title">🏥 医療・その他</div>
+    <div class="g3">
+      <div class="fld"><label>医療・衛生費</label><input type="number" id="cMedical" value="10000" step="1000"></div>
+      <div class="fld"><label>衣服・美容</label><input type="number" id="cClothing" value="15000" step="1000"></div>
+      <div class="fld"><label>その他雑費</label><input type="number" id="cOther" value="10000" step="1000"></div>
+    </div>
+  </div>
+
+  </div><!-- /livingDetailBox -->
+
+  <div id="livingTotal" class="note" style="background:var(--surface2);padding:8px 10px;border-radius:var(--radius);margin-top:4px"></div>
+
+  <div class="sec-sub">老後の生活費</div>
+  <div class="fld"><label>老後の月額生活費（円）</label><input type="number" id="retireLiving" value="250000" step="10000"></div>
+  <p class="note">※住居費は「住居・ローン」欄で管理</p>
+</div>
+
+<!-- セカンドライフ -->
+<div class="sb-sec">
+  <div class="sb-sec-title">セカンドライフ（老後）設計</div>
+  <div class="g2" style="margin-bottom:10px">
+    <div class="fld"><label>セカンドライフ開始年齢（本人）</label><input type="number" id="secondLifeAge" value="65" step="1"></div>
+    <div class="fld"><label>ゆとり上乗せ額（月額・円）</label><input type="number" id="retireExtra" value="0" step="10000"></div>
+  </div>
+  <div class="g2" style="margin-bottom:10px">
+    <div class="fld"><label>老後その他収入（月額・円）</label><input type="number" id="retireOtherIncome" value="0" step="10000"></div>
+    <div class="fld"><label>想定寿命（本人・歳）</label><input type="number" id="secondLifeEndAge" value="100" step="1"></div>
+  </div>
+  <p class="note">※ 老後の月額生活費は「生活費」欄、公的年金は「年金」欄の数値を使用します。<br>ゆとり上乗せ額＝旅行・趣味などゆとり費用の月額。老後その他収入＝個人年金・家賃収入などの月額。</p>
+</div>
+
+<!-- 住居・ローン -->
+<div class="sb-sec">
+  <div class="sb-sec-title">住居・住宅ローン</div>
+  <div class="g2" style="margin-bottom:10px">
+    <div class="fld"><label>居住形態</label>
+      <select id="housingType" onchange="toggleHousing()">
+        <option value="rent">賃貸</option>
+        <option value="owned" selected>持ち家（ローンあり）</option>
+        <option value="paid">持ち家（完済済み）</option>
+        <option value="other">その他</option>
+      </select>
+    </div>
+    <div class="fld"><label>月額家賃・管理費（円）</label><input type="number" id="monthlyRent" value="0" step="5000"></div>
+  </div>
+
+  <div id="loanSection">
+    <div class="sec-sub" style="margin-top:0">🏠 住宅ローン詳細</div>
+
+    <!-- ペアローン対応：本人ローン -->
+    <div style="background:var(--blue-bg);border:1px solid #9dc0e8;border-radius:var(--radius);padding:12px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">本人ローン</div>
+      <div class="g3" style="margin-bottom:8px">
+        <div class="fld"><label>借入金額（円）</label><input type="number" id="selfLoanAmt" value="30000000" step="500000" oninput="calcLoan()"></div>
+        <div class="fld"><label>借入年（西暦）</label><input type="number" id="selfLoanYear" value="2020" min="1990" max="2030" oninput="calcLoan()"></div>
+        <div class="fld"><label>返済期間（年）</label><input type="number" id="selfLoanYears" value="35" min="1" max="50" oninput="calcLoan()"></div>
+      </div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="fld"><label>金利（年率 %）</label><input type="number" id="loanRate" value="1.0" step="0.05" oninput="calcLoan()"></div>
+        <div class="fld"><label>月々の返済額（円）<button type="button" onclick="autoCalcLoanMonthly('self')" style="margin-left:4px;font-size:10px;padding:1px 5px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue);border-radius:4px;cursor:pointer;font-family:inherit">自動計算</button></label><input type="number" id="loanMonthly" value="90000" step="1000" oninput="calcLoan()"></div>
+      </div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="fld"><label>団体信用生命保険（本人）</label>
+          <select id="selfDansin" onchange="calcLoan()">
+            <option value="yes" selected>加入（団信あり）</option>
+            <option value="no">未加入・対象外</option>
+          </select>
+        </div>
+        <div class="fld"><label>完済年齢（歳）</label><input type="number" id="loanEndAge" value="65" oninput="calcLoan()" readonly style="background:var(--surface2);color:var(--text2)"></div>
+      </div>
+      <div id="selfLoanPreview" class="note" style="background:var(--surface);padding:6px 8px;border-radius:4px"></div>
+    </div>
+
+    <!-- ペアローン：配偶者ローン -->
+    <div style="background:var(--amber-bg);border:1px solid #e8c97a;border-radius:var(--radius);padding:12px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--amber)">配偶者ローン（ペアローン）</span>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="spLoanEnabled" onchange="toggleSpLoan()" style="width:auto"> 有効にする</label>
+      </div>
+      <div id="spLoanFields" style="display:none">
+        <div class="g3" style="margin-bottom:8px">
+          <div class="fld"><label>借入金額（円）</label><input type="number" id="spLoanAmt" value="10000000" step="500000" oninput="calcLoan()"></div>
+          <div class="fld"><label>借入年（西暦）</label><input type="number" id="spLoanYear" value="2020" min="1990" max="2030" oninput="calcLoan()"></div>
+          <div class="fld"><label>返済期間（年）</label><input type="number" id="spLoanYears" value="35" min="1" max="50" oninput="calcLoan()"></div>
+        </div>
+        <div class="g2" style="margin-bottom:8px">
+          <div class="fld"><label>金利（年率 %）</label><input type="number" id="spLoanRate" value="1.0" step="0.05" oninput="calcLoan()"></div>
+          <div class="fld"><label>月々の返済額（円）<button type="button" onclick="autoCalcLoanMonthly('sp')" style="margin-left:4px;font-size:10px;padding:1px 5px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber);border-radius:4px;cursor:pointer;font-family:inherit">自動計算</button></label><input type="number" id="spLoanMonthly" value="30000" step="1000" oninput="calcLoan()"></div>
+        </div>
+        <div class="fld" style="margin-bottom:8px"><label>団体信用生命保険（配偶者）</label>
+          <select id="spDansin" onchange="calcLoan()">
+            <option value="yes" selected>加入（団信あり）</option>
+            <option value="no">未加入・対象外</option>
+          </select>
+        </div>
+        <div id="spLoanPreview" class="note" style="background:var(--surface);padding:6px 8px;border-radius:4px"></div>
+      </div>
+    </div>
+
+    <div id="loanTotalPreview" class="note" style="background:var(--surface2);padding:8px 10px;border-radius:var(--radius);margin-bottom:4px"></div>
+  </div>
+
+  <div id="fixedTaxSection" style="display:none">
+    <div class="sec-sub">固定資産税・都市計画税</div>
+    <div class="g2">
+      <div class="fld"><label>固定資産税（年額・円）</label><input type="number" id="fixedTax" value="120000" step="10000"></div>
+      <div class="fld"><label>都市計画税（年額・円）</label><input type="number" id="cityTax" value="30000" step="5000"></div>
+    </div>
+    <p class="note">※一般的な目安：固定資産税は評価額の1.4%、都市計画税は0.3%。固定資産税の納税通知書に記載の金額を入力してください。</p>
+  </div>
+
+  <div class="sec-sub">預貯金</div>
+  <div class="g2">
+    <div class="fld"><label>現在の預貯金（円）</label><input type="number" id="savings" value="5000000" step="500000"></div>
+    <div class="fld"><label>預貯金利回り（%）</label><input type="number" id="savingsRate" value="0.5" step="0.1"></div>
+  </div>
+</div>
+
+<!-- 年金 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">年金（夫婦別）</div>
+  <div class="pair-cols">
+    <div class="pcol">
+      <div class="pcol-title">本人</div>
+      <div class="fld" style="margin-bottom:8px"><label>年金形態</label><select id="selfPensionType" onchange="calcPension('self')"><option value="kosei">厚生年金</option><option value="kokumin">国民年金</option><option value="ideco">iDeCo加入</option><option value="dc">企業型DC加入</option><option value="manual">手動入力</option></select></div>
+      <div class="fld" style="margin-bottom:8px"><label>受取開始年齢</label><input type="number" id="selfPensionStart" value="65" onchange="calcPension('self')"></div>
+      <div id="selfAutoRow">
+        <div class="fld" style="margin-bottom:4px">
+          <label>平均標準報酬月額（円）<button type="button" onclick="autoFillAvgSalary('self')" style="margin-left:5px;font-size:10px;padding:1px 6px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue);border-radius:4px;cursor:pointer;font-family:inherit">年収から自動計算</button></label>
+          <input type="number" id="selfAvgSalary" value="400000" step="1000" oninput="calcPension('self')">
+          <div id="selfAvgSalaryNote" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+        </div>
+        <div class="fld" style="margin-bottom:8px"><label>加入年数</label><input type="number" id="selfPensionYrs" value="40" oninput="calcPension('self')"></div>
+      </div>
+      <div class="fld" id="selfIdecoFld" style="display:none;margin-bottom:8px"><label>iDeCo月額（円）</label><input type="number" id="selfIdeco" value="23000" step="1000" oninput="calcPension('self')"></div>
+      <div class="fld" id="selfDcFld" style="display:none;margin-bottom:8px"><label>企業型DC掛金 月額（円）</label><input type="number" id="selfDc" value="20000" step="1000" oninput="calcPension('self')"><div style="font-size:11px;color:var(--text3);margin-top:2px">選択制DCは掛金分だけ標準報酬が下がり報酬比例年金も減りますが、DC資産から受取が上乗せされます</div></div>
+      <div class="fld" id="selfManualFld" style="display:none"><label>年金月額（円）</label><input type="number" id="selfPensionAmt" value="150000" step="5000"></div>
+      <div id="selfEst"></div>
+    </div>
+    <div class="pcol">
+      <div class="pcol-title">配偶者</div>
+      <div class="fld" style="margin-bottom:8px"><label>年金形態</label><select id="spPensionType" onchange="calcPension('sp')"><option value="kokumin" selected>国民年金</option><option value="kosei">厚生年金</option><option value="ideco">iDeCo加入</option><option value="dc">企業型DC加入</option><option value="manual">手動入力</option></select></div>
+      <div class="fld" style="margin-bottom:8px"><label>受取開始年齢</label><input type="number" id="spPensionStart" value="65" onchange="calcPension('sp')"></div>
+      <div id="spAutoRow">
+        <div class="fld" style="margin-bottom:4px">
+          <label>平均標準報酬月額（円）<button type="button" onclick="autoFillAvgSalary('sp')" style="margin-left:5px;font-size:10px;padding:1px 6px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue);border-radius:4px;cursor:pointer;font-family:inherit">年収から自動計算</button></label>
+          <input type="number" id="spAvgSalary" value="200000" step="1000" oninput="calcPension('sp')">
+          <div id="spAvgSalaryNote" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+        </div>
+        <div class="fld" style="margin-bottom:8px"><label>加入年数</label><input type="number" id="spPensionYrs" value="20" oninput="calcPension('sp')"></div>
+      </div>
+      <div class="fld" id="spIdecoFld" style="display:none;margin-bottom:8px"><label>iDeCo月額（円）</label><input type="number" id="spIdeco" value="23000" step="1000" oninput="calcPension('sp')"></div>
+      <div class="fld" id="spDcFld" style="display:none;margin-bottom:8px"><label>企業型DC掛金 月額（円）</label><input type="number" id="spDc" value="20000" step="1000" oninput="calcPension('sp')"><div style="font-size:11px;color:var(--text3);margin-top:2px">選択制DCは掛金分だけ標準報酬が下がり報酬比例年金も減りますが、DC資産から受取が上乗せされます</div></div>
+      <div class="fld" id="spManualFld" style="display:none"><label>年金月額（円）</label><input type="number" id="spPensionAmt" value="65000" step="5000"></div>
+      <div id="spEst"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 投資 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">投資・積立</div>
+  <div id="invList"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+    <button class="add-btn" onclick="addInv('nisa')">＋ NISA</button>
+    <button class="add-btn" onclick="addInv('ideco')">＋ iDeCo</button>
+    <button class="add-btn" style="color:#0e7b8a" onclick="addInv('brokerage')">＋ 証券口座</button>
+    <button class="add-btn" style="color:#c0852b" onclick="addInv('crypto')">＋ 暗号通貨</button>
+    <button class="add-btn" onclick="addInv('other')">＋ その他</button>
+  </div>
+  <p class="note" style="margin-top:6px">※ NISAは非課税・iDeCo/企業型DCは60歳まで。企業型DC（選択制）は掛金分が社会保険料・税の対象外となります。利回りはご自身の想定でご設定ください。</p>
+</div>
+
+<!-- 保険 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">加入保険</div>
+  <div id="fxRateBar" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;margin-bottom:10px;font-size:11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span style="font-weight:700;color:var(--text2)">💱 USD/JPY</span>
+    <span id="fxRateDisp" style="color:var(--text3)">取得中...</span>
+    <button onclick="fetchTTM()" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;font-family:inherit">更新</button>
+    <div style="display:flex;align-items:center;gap:4px;width:100%">
+      <span style="font-size:10px;color:var(--text3)">手動レート（0=自動）:</span>
+      <input type="number" id="fxManual" value="0" step="0.1" min="0" style="width:70px;font-size:11px;padding:2px 5px;border:1px solid var(--border);border-radius:4px" oninput="onFxManual()">
+      <span style="font-size:10px;color:var(--text3)">円/USD</span>
+    </div>
+  </div>
+  <div id="insList"></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <button class="add-btn" onclick="addInsLump()">＋ 定期・終身保険</button>
+    <button class="add-btn" style="color:var(--amber)" onclick="addInsIncome()">＋ 収入保障保険</button>
+    <button class="add-btn" style="color:#1a7a3a" onclick="addInsUSD()">＋ 米ドル建保険</button>
+  </div>
+</div>
+
+<!-- 必要保障設定 -->
+<div class="sb-sec">
+  <div class="sb-sec-title">必要保障 設定</div>
+  <div class="pair-cols">
+    <div class="pcol">
+      <div class="pcol-title" style="color:var(--blue)">本人死亡時</div>
+      <div class="fld" style="margin-bottom:8px">
+        <label>保障期間の終了設定</label>
+        <select id="reqSelfMode" onchange="updateReqMode('self')">
+          <option value="youngest">末子就学終了まで</option>
+          <option value="retire">配偶者の退職年齢まで</option>
+          <option value="custom" selected>カスタム（歳を指定）</option>
+        </select>
+      </div>
+      <div class="fld" id="reqSelfUntilFld" style="margin-bottom:8px"><label>配偶者の必要年齢まで（歳）</label><input type="number" id="reqSelfUntilAge" value="100"></div>
+      <div class="fld" style="margin-bottom:8px"><label>遺族の月額生活費（円）</label><input type="number" id="reqSelfLiving" value="200000" step="10000"></div>
+      <div class="fld" style="margin-bottom:8px"><label>遺族年金（月額・円）<button type="button" onclick="autoCalcWidowPension('self')" style="margin-left:6px;font-size:10px;padding:1px 6px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue);border-radius:4px;cursor:pointer;font-family:inherit">自動計算</button></label><input type="number" id="reqSelfWidowPension" value="80000" step="5000"></div>
+      <div id="reqSelfWidowNote" class="note" style="margin-bottom:8px"></div>
+      <div class="fld" style="margin-bottom:8px"><label>葬儀・整理費用（円）</label><input type="number" id="reqSelfFuneral" value="3000000" step="100000"></div>
+      <div class="fld" style="margin-bottom:8px"><label>住宅ローン残高（団信なし分・円）<span style="font-size:10px;color:var(--green)">自動反映</span></label><input type="number" id="reqSelfMortgage" value="0" step="1000000" style="background:var(--surface2)"></div>
+      <div class="fld"><label>その他一時費用（円）</label><input type="number" id="reqSelfExtra" value="0" step="100000"></div>
+    </div>
+    <div class="pcol">
+      <div class="pcol-title" style="color:var(--amber)">配偶者死亡時</div>
+      <div class="fld" style="margin-bottom:8px">
+        <label>保障期間の終了設定</label>
+        <select id="reqSpMode" onchange="updateReqMode('sp')">
+          <option value="youngest">末子就学終了まで</option>
+          <option value="retire">本人の退職年齢まで</option>
+          <option value="custom" selected>カスタム（歳を指定）</option>
+        </select>
+      </div>
+      <div class="fld" id="reqSpUntilFld" style="margin-bottom:8px"><label>本人の必要年齢まで（歳）</label><input type="number" id="reqSpUntilAge" value="100"></div>
+      <div class="fld" style="margin-bottom:8px"><label>遺族の月額生活費（円）</label><input type="number" id="reqSpLiving" value="180000" step="10000"></div>
+      <div class="fld" style="margin-bottom:8px"><label>遺族年金（月額・円）<button type="button" onclick="autoCalcWidowPension('sp')" style="margin-left:6px;font-size:10px;padding:1px 6px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue);border-radius:4px;cursor:pointer;font-family:inherit">自動計算</button></label><input type="number" id="reqSpWidowPension" value="0" step="5000"></div>
+      <div id="reqSpWidowNote" class="note" style="margin-bottom:8px"></div>
+      <div class="fld" style="margin-bottom:8px"><label>葬儀・整理費用（円）</label><input type="number" id="reqSpFuneral" value="2000000" step="100000"></div>
+      <div class="fld" style="margin-bottom:8px"><label>住宅ローン残高（団信なし分・円）<span style="font-size:10px;color:var(--green)">自動反映</span></label><input type="number" id="reqSpMortgage" value="0" step="1000000" style="background:var(--surface2)"></div>
+      <div class="fld"><label>その他一時費用（円）</label><input type="number" id="reqSpExtra" value="0" step="100000"></div>
+    </div>
+  </div>
+  <p class="note" style="margin-top:8px">団信付きローンは残高を0に。収入保障は保険期間中の給付総額で算入。</p>
+</div>
+
+<div style="padding:20px 24px">
+  <button class="run-btn" onclick="runSim()">▶ シミュレーション実行</button>
+</div>
+</div><!-- /sidebar -->
+
+<!-- 印刷プレビューオーバーレイ -->
+<div id="printPreviewOverlay">
+  <div id="printPreviewToolbar">
+    <span class="pp-title">🖨 印刷プレビュー</span>
+    <div class="pp-zoom-group">
+      <span>表示倍率</span>
+      <button onclick="ppZoom(-0.1)">－</button>
+      <span id="ppZoomLabel">100%</span>
+      <button onclick="ppZoom(+0.1)">＋</button>
+    </div>
+    <button class="pp-btn-print" onclick="executePrint()">印刷 / PDF保存</button>
+    <button class="pp-btn-close" onclick="closePrintPreview()">✕ 閉じる</button>
+  </div>
+  <div id="printPreviewBody">
+    <div id="printPreviewPageWrap">
+      <div id="printPreviewPage"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ MAIN ════════════════ -->
+<div class="main">
+  <div id="placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:12px">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+    <p style="font-size:14px">左のパネルで入力し「シミュレーション実行」を押してください</p>
+  </div>
+
+  <div id="results" style="display:none">
+    <!-- PDF表紙（印刷時のみ表示） -->
+    <div class="pdf-cover" id="pdfCover">
+      <div class="cv-top">
+        <div>LIFE PLAN SIMULATION</div>
+        <div id="pdfCoverDate"></div>
+      </div>
+      <div class="cv-rule"></div>
+      <div class="cv-mid">
+        <div class="cv-kicker">LIFE PLANNING</div>
+        <div class="cv-title">ライフプランニング表</div>
+        <div class="cv-sub">人生の羅針盤となる資金計画書</div>
+        <div class="cv-name-wrap">
+          <div class="cv-name-label">世帯主</div>
+          <div class="cv-name" id="pdfCoverName"></div>
+          <div class="cv-family" id="pdfCoverFamily"></div>
+        </div>
+      </div>
+      <div class="cv-bottom">
+        <div class="cv-note">※ 本レポートは入力情報に基づく試算であり、将来の成果を保証するものではありません。</div>
+        <div class="cv-brand" style="text-align:right">FINANCIAL PLAN</div>
+      </div>
+    </div>
+    <!-- PDF専用ヘッダー（印刷時のみ表示） -->
+    <div class="pdf-header" id="pdfHeader">
+      <div>
+        <div style="font-size:18px;font-weight:700">ライフプランシミュレーション レポート</div>
+        <div id="pdfSubLine" style="font-size:12px;color:#555;margin-top:2px"></div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#777">
+        <div id="pdfDate"></div>
+        <div style="margin-top:2px">※ 本レポートは試算であり将来を保証するものではありません</div>
+      </div>
+    </div>
+
+    <!-- 入力情報サマリー（印刷時のみ表示） -->
+    <div id="pdfInputSummary" class="pdf-section"></div>
+
+    <div class="results-header pdf-hide">
+      <h2>シミュレーション結果</h2>
+      <span id="resultSubtitle" style="font-size:13px;color:var(--text2)"></span>
+    </div>
+    <div class="metric-grid" id="metricCards"></div>
+    <div id="warnBox" class="warn-box"></div>
+
+    <div class="tabs pdf-hide">
+      <button class="tab on" onclick="swTab('chart',this)">グラフ</button>
+      <button class="tab" onclick="swTab('table',this)">キャッシュフロー表</button>
+      <button class="tab" onclick="swTab('events',this)">イベント</button>
+      <button class="tab" onclick="swTab('inv',this)">投資サマリー</button>
+      <button class="tab" onclick="swTab('ins',this)">保険サマリー</button>
+      <button class="tab" onclick="swTab('req',this)">必要保障</button>
+      <button class="tab" onclick="swTab('second',this)">セカンドライフ</button>
+      <button class="tab" onclick="swTab('saveload',this)" style="margin-left:auto;color:var(--green);border-color:var(--green)">💾 保存・読込</button>
+    </div>
+
+    <div class="pdf-section-title pdf-section">📈 資産・収支推移</div>
+    <div id="tab-chart" class="panel on">
+      <div class="chart-wrap">
+        <div class="legend-box" id="legendBox"></div>
+        <div class="chart-canvas-box"><canvas id="mainChart" role="img" aria-label="資産・収支推移グラフ"></canvas></div>
+      </div>
+      <p class="note" style="margin-top:6px">名目値表示。点線＝実質資産（インフレ調整済み）</p>
+    </div>
+    <div class="pdf-section-title pdf-section pdf-page-break">📋 キャッシュフロー表</div>
+    <div id="tab-table" class="panel">
+      <div class="cft-wrap">
+        <table class="cft"><thead id="cfHead"></thead><tbody id="cfBody"></tbody></table>
+        <div id="cfUnivLegend" style="margin-top:8px;font-size:12px;color:var(--text2);display:none">
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#fde68a;border:1px solid #f0c000"></span>大学・専門 在学期間</span>
+        </div>
+      </div>
+    </div>
+    <div class="pdf-section-title pdf-section pdf-page-break">📅 ライフイベント</div>
+    <div id="tab-events" class="panel"><div class="ev-list" id="evList"></div></div>
+    <div class="pdf-section-title pdf-section pdf-page-break">📈 投資サマリー</div>
+    <div id="tab-inv" class="panel"><div class="inv-cards" id="invCards"></div></div>
+    <div class="pdf-section-title pdf-section">🛡 保険サマリー</div>
+    <div id="tab-ins" class="panel"><div class="ins-cards" id="insCards"></div></div>
+    <div class="pdf-section-title pdf-section pdf-page-break">⚖ 必要保障分析</div>
+    <div id="tab-req" class="panel">
+      <!-- ゲージ（カバー率リング） -->
+      <div class="req-gauge-wrap" id="reqGaugeWrap"></div>
+
+      <!-- 内訳グラフ -->
+      <div class="req-chart-wrap">
+        <div class="req-chart-title">📊 必要保障額・カバー状況グラフ</div>
+        <div class="req-chart-sub">必要保障の内訳と、保険・資産によるカバー状況を比較します</div>
+        <div style="position:relative;height:320px"><canvas id="reqChart" role="img" aria-label="必要保障グラフ"></canvas></div>
+        <div class="req-legend" id="reqChartLegend"></div>
+      </div>
+
+      <!-- 保険保有状況タイムライン -->
+      <div class="req-chart-wrap" id="reqInsTimelineWrap">
+        <div class="req-chart-title">🛡 保険カバー推移（年齢別）</div>
+        <div class="req-chart-sub">本人・配偶者の年齢に応じた死亡保障カバー額の推移</div>
+        <div style="position:relative;height:220px"><canvas id="reqTimelineChart" role="img" aria-label="保険カバー推移グラフ"></canvas></div>
+      </div>
+
+      <!-- 詳細カード -->
+      <div class="req-pair" id="reqPair"></div>
+      <div class="info-box" id="reqInfoBox"></div>
+    </div>
+
+    <div class="pdf-section-title pdf-section pdf-page-break">🌅 セカンドライフ準備</div>
+    <div id="tab-second" class="panel">
+      <div id="secondLifeBox"></div>
+    </div>
+
+    <div id="tab-saveload" class="panel">
+      <div style="max-width:640px">
+        <!-- 上書き保存バナー -->
+        <div id="saveloadOverwriteBanner" style="display:none;background:var(--green-bg);border:1px solid #a3d9a5;border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:13px">現在のデータ：<strong id="saveloadCurrentName" style="color:var(--green)"></strong></span>
+          <button onclick="overwriteCurrentSlot()" style="margin-left:auto;padding:6px 16px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">⬆ 上書き保存</button>
+        </div>
+
+        <!-- 新規保存 -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">💾 名前を付けて新規保存</div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="saveSlotName2" placeholder="例：住宅購入前シナリオ、老後見直し後 など" maxlength="40"
+              style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:inherit">
+            <button onclick="saveSlotInline()" style="padding:7px 18px;background:var(--text);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">保存</button>
+          </div>
+        </div>
+
+        <!-- 保存済みスロット -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">📂 保存済みデータ一覧</div>
+          <div id="slotList2"></div>
+          <div id="slotEmpty2" style="font-size:13px;color:var(--text3);text-align:center;padding:24px 0">保存データがありません</div>
+        </div>
+
+        <p class="note" style="margin-top:10px">※ データはこのブラウザ内（localStorage）に保存されます。iPadなど別端末と共有する場合は「データ管理」ボタンからJSONで書き出してください。</p>
+      </div>
+    </div>
+
+    <!-- ════ 巻末：計算根拠の出典一覧（印刷時のみ） ════ -->
+    <div class="pdf-section pdf-page-break" id="pdfSources">
+      <div class="pdf-section-title">📚 計算根拠・出典一覧</div>
+      <p class="src-intro">本シミュレーションは、入力いただいた情報および以下の公的統計・各種データを参考に作成しています。実際の金額・制度は経済状況や法改正等により変動します。あくまで参考値としてご活用ください。</p>
+      <table class="pdf-sum-table src-table">
+        <thead><tr><th style="width:26%">項目</th><th>出典・参考データ</th></tr></thead>
+        <tbody>
+          <tr><td>教育費（幼稚園〜高校）</td><td>文部科学省「子供の学習費調査」（最新年度）</td></tr>
+          <tr><td>教育費（大学）</td><td>文部科学省「国公私立大学の授業料等の推移」／日本学生支援機構「学生生活調査」</td></tr>
+          <tr><td>生活費・消費支出</td><td>総務省統計局「家計調査（家計収支編）」</td></tr>
+          <tr><td>住宅購入・住宅ローン</td><td>住宅金融支援機構「フラット35利用者調査」／国土交通省「住宅市場動向調査」</td></tr>
+          <tr><td>公的年金（老齢年金）</td><td>厚生労働省「年金制度」公表資料／日本年金機構「ねんきん定期便」</td></tr>
+          <tr><td>退職金</td><td>厚生労働省「就労条件総合調査」／中央労働委員会「賃金事情等総合調査」</td></tr>
+          <tr><td>老後生活費</td><td>総務省「家計調査（高齢無職世帯）」／生命保険文化センター「生活保障に関する調査」</td></tr>
+          <tr><td>平均余命・年齢設定</td><td>厚生労働省「簡易生命表」</td></tr>
+          <tr><td>児童手当・公的給付</td><td>こども家庭庁／各自治体の制度資料</td></tr>
+          <tr><td>必要保障額の考え方</td><td>生命保険文化センター「生命保険に関する全国実態調査」</td></tr>
+          <tr><td>運用利回り・物価上昇率</td><td>本シミュレーション上の入力前提値（過去の市場平均等を参考に各自で設定）</td></tr>
+        </tbody>
+      </table>
+      <p class="src-note">※ 上記出典は計算の前提として参考にした一般的なデータ・統計の一覧です。各数値の具体的な金額は入力値および設定した前提（利回り・上昇率等）に基づいて算出しています。最新の数値・制度内容は各出典元の公表資料をご確認ください。</p>
+    </div>
+  </div>
+</div>
+</div><!-- /layout -->
+
+<!-- ════════════ DATA MANAGER MODAL ════════════ -->
+<div class="modal-overlay hidden" id="dataModal" onclick="if(event.target===this)closeDataModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>💾 データ管理</h3>
+      <button class="modal-close" onclick="closeDataModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- 保存エリア -->
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">名前を付けて保存</div>
+      <div class="save-name-row">
+        <input type="text" id="saveSlotName" placeholder="例：家族A・住宅購入前、老後シナリオ など" maxlength="40">
+        <button class="modal-btn primary" onclick="saveSlot()">保存</button>
+      </div>
+
+      <!-- 保存済みリスト -->
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">保存済みデータ</div>
+      <div class="slot-list" id="slotList"></div>
+      <div id="slotEmpty" class="empty-note" style="display:none">保存データがありません</div>
+
+      <!-- JSONエクスポート・インポート -->
+      <div class="io-row">
+        <button class="io-btn" onclick="exportJSON()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          JSONファイルに書き出す
+        </button>
+        <label class="io-btn" style="cursor:pointer">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          JSONファイルを読み込む
+          <input type="file" style="display:none" onchange="importJSON(event)">
+        </label>
+      </div>
+      <p class="note" style="margin-top:4px">※ 各データの「書き出す」で個別に保存できます。読み込み時は取り込む項目を選べます。</p>
+
+      <!-- 読み込み項目の選択 -->
+      <div id="importSelectBox" style="display:none;margin-top:10px;padding:10px;border:1px dashed var(--blue);border-radius:8px;background:var(--blue-bg)"></div>
+
+      <!-- テキスト方式（iPad/iCloudで最も確実） -->
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--blue)">ファイルがうまく扱えない場合：テキストでコピー＆ペースト</summary>
+        <textarea id="jsonText" placeholder="ここにデータのテキストが表示されます。/ 読み込む場合はテキストを貼り付けてください。" style="width:100%;height:120px;margin-top:8px;font-family:monospace;font-size:11px;padding:8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box"></textarea>
+        <div class="io-row" style="margin-top:6px">
+          <button class="io-btn" onclick="fillJsonText()">テキストに書き出す</button>
+          <button class="io-btn" onclick="copyJsonText()">コピー</button>
+          <button class="io-btn" onclick="importJSONText()">テキストから読み込む</button>
+        </div>
+        <p class="note" style="margin-top:6px">書き出したテキストをメモ/メールなどに保存し、別端末で貼り付けて「テキストから読み込む」を押すとデータを移せます。</p>
+      </details>
+
+      <p class="note" style="margin-top:8px">※ 通常はこのブラウザ内に保存されます。<b>iPad/iPhoneやiCloud経由で開いた場合はブラウザ内保存が消えることがある</b>ため、「JSONファイルに書き出す」または上記テキスト方式でデータを移してください。</p>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn cancel" onclick="closeDataModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let chartInst=null,insCount=0,invCount=0,simData=[];
+let usdJpyRate=150;
+async function fetchTTM(){
+  const el=document.getElementById('fxRateDisp');
+  const manual=+document.getElementById('fxManual')?.value||0;
+  if(manual>0){usdJpyRate=manual;el.textContent='手動設定: 1 USD = '+manual.toFixed(2)+' 円';el.style.color='var(--amber)';refreshUSDPreviews();return;}
+  el.textContent='取得中...';el.style.color='var(--text3)';
+  try{
+    const res=await fetch('https://open.er-api.com/v6/latest/USD');
+    if(!res.ok)throw new Error();
+    const data=await res.json();
+    usdJpyRate=Math.round(data.rates.JPY*100)/100;
+    const d=new Date();
+    el.textContent='1 USD = '+usdJpyRate.toFixed(2)+' 円（TTM参考値・市場仲値 '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')+'取得）';
+    el.style.color='var(--green)';
+  }catch(e){
+    el.textContent='取得失敗（デフォルト '+usdJpyRate+' 円を使用）';el.style.color='var(--red)';
+  }
+  refreshUSDPreviews();
+}
+function onFxManual(){
+  const v=+document.getElementById('fxManual').value||0;
+  if(v>0){usdJpyRate=v;document.getElementById('fxRateDisp').textContent='手動設定: 1 USD = '+v.toFixed(2)+' 円';document.getElementById('fxRateDisp').style.color='var(--amber)';}
+  else fetchTTM();
+  refreshUSDPreviews();
+}
+function refreshUSDPreviews(){
+  document.querySelectorAll('#insList .ins-block[data-instype="usd"]').forEach(el=>{
+    const id=el.id.split('-')[1];updateUSDPreview(id);
+  });
+}
+function fmtUSD(n){return '$'+Math.round(n).toLocaleString('en-US');}
+function fmtJPYfromUSD(usd){return '約'+fmtM(Math.round(usd*usdJpyRate));}
+function updateUSDPreview(id){
+  const el=document.getElementById('iusd-preview-'+id);if(!el)return;
+  const death=+(document.getElementById('iusd-death-'+id)?.value||0);
+  const prem=+(document.getElementById('iusd-prem-'+id)?.value||0);
+  const sv=+(document.getElementById('iusd-sv-'+id)?.value||0);
+  const freq=document.getElementById('ifreq-'+id)?.value||'year';
+  const annual=prem*insFreqMult(freq);
+  el.innerHTML=
+    '<b>死亡保険金</b> '+fmtUSD(death)+' = <b>'+fmtJPYfromUSD(death)+'</b>　'+
+    '<b>年払保険料</b> '+fmtUSD(annual)+' = <b>'+fmtJPYfromUSD(annual)+'</b>'+
+    (sv>0?'　<b>解約返戻金</b> '+fmtUSD(sv)+' = <b>'+fmtJPYfromUSD(sv)+'</b>':'')+
+    '　<span style="color:var(--text3)">(1 USD = '+usdJpyRate.toFixed(2)+'円)</span>';
+}
+function addInsUSD(nm='',deathUSD=100000,premUSD=3000,sa=65,svUSD=80000,ea=99,payEnd=0,cat='death',who='self',freq='year'){
+  const id=++insCount;
+  const d=document.createElement('div');d.className='ins-block';d.id='ins-'+id;d.dataset.instype='usd';
+  const pe=payEnd||ea;
+  d.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <span class="tag tag-usd">＄ USD建</span>
+    <span style="font-size:12px;color:var(--text3)">米ドル建・一時金型</span>
+    <button class="del-btn" onclick="delRow('ins',${id})" style="margin-left:auto">✕</button></div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>保険種別</label>
+      <select id="icat-${id}">
+        ${Object.entries(INS_CATS).filter(([k])=>k!=='income').map(([k,v])=>`<option value="${k}"${k===cat?' selected':''}>${v.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fld"><label>被保険者</label><select id="iwho-${id}">${buildWhoOptions(who)}</select></div>
+    <div class="fld"><label>保険名</label><input type="text" value="${nm}" id="iname-${id}" placeholder="ドル建終身保険A"></div>
+  </div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>死亡保険金（USD）</label><input type="number" value="${deathUSD}" step="10000" id="iusd-death-${id}" oninput="updateUSDPreview(${id})"></div>
+    <div class="fld"><label>払込頻度</label>
+      <select id="ifreq-${id}" onchange="updateUSDPreview(${id})">
+        <option value="month"${freq==='month'?' selected':''}>月払い</option>
+        <option value="half"${freq==='half'?' selected':''}>半年払い</option>
+        <option value="year"${freq==='year'?' selected':''}>年払い</option>
+      </select>
+    </div>
+    <div class="fld"><label>保険料（USD／回）</label><input type="number" value="${premUSD}" step="100" id="iprem-${id}" oninput="updateUSDPreview(${id})"></div>
+  </div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>払込完了年齢</label><input type="number" value="${pe}" id="ipayend-${id}"></div>
+    <div class="fld"><label>保険終了年齢</label><input type="number" value="${ea}" id="iend-${id}"></div>
+    <div class="fld"><label>解約年齢（0=なし）</label><input type="number" value="${sa}" id="isurrage-${id}"></div>
+  </div>
+  <div class="fld" style="margin-bottom:8px"><label>解約返戻金（USD）</label><input type="number" value="${svUSD}" step="1000" id="iusd-sv-${id}" oninput="updateUSDPreview(${id})"></div>
+  <div class="note" id="iusd-preview-${id}" style="color:var(--blue);line-height:1.8;margin-top:4px"></div>`;
+  document.getElementById('insList').appendChild(d);
+  updateUSDPreview(id);
+}
+const fmt=n=>Math.round(n).toLocaleString('ja-JP');
+
+const _now=new Date(),_curY=_now.getFullYear(),_curM=_now.getMonth()+1;
+function getPlanYM(){
+  const pd=document.getElementById('planDate')?.value;
+  if(pd){const d=new Date(pd);return{y:d.getFullYear(),m:d.getMonth()+1};}
+  return{y:_curY,m:_curM};
+}
+function getSelfName(){return document.getElementById('selfName')?.value.trim()||'本人';}
+function getSpName(){return document.getElementById('spName')?.value.trim()||'配偶者';}
+function updateNameTitles(){
+  const sn=getSelfName(),spn=getSpName();
+  const st=document.getElementById('selfColTitle');if(st)st.textContent=sn;
+  const spt=document.getElementById('spColTitle');if(spt)spt.textContent=spn;
+  refreshInsWhoOptions();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('selfName')?.addEventListener('input',updateNameTitles);
+  document.getElementById('spName')?.addEventListener('input',updateNameTitles);
+  const pd=document.getElementById('planDate');
+  if(pd&&!pd.value){const t=new Date();pd.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;}
+});
+function calcAge(by,bm){const{y,m}=getPlanYM();let a=y-by;if(m<bm)a--;return Math.max(0,a);}
+function getSelfAge(){return calcAge(+document.getElementById('custSelfBY').value||+document.getElementById('selfBirthYear').value||1986,+document.getElementById('custSelfBM').value||+document.getElementById('selfBirthMonth').value||1);}
+function getSpAge(){return calcAge(+document.getElementById('custSpBY').value||+document.getElementById('spBirthYear').value||1988,+document.getElementById('custSpBM').value||+document.getElementById('spBirthMonth').value||1);}
+function updateAgeDisp(who){
+  const byId=who==='self'?'custSelfBY':'custSpBY';
+  const hasCust=!!document.getElementById(byId)?.value;
+  const age=who==='self'?getSelfAge():getSpAge();
+  document.getElementById(who+'AgeDisp').textContent=hasCust?'現在 '+age+'歳':'';
+}
+// ── 教育費データ（年額・円） ──
+const UNIV_PRESETS={
+  kokkori_bunkei:{label:'国公立（文系）',cost:606000,years:4},
+  kokkori_rikei: {label:'国公立（理系）',cost:650000,years:4},
+  shiritsu_bunkei:{label:'私立（文系）', cost:1028000,years:4},
+  shiritsu_rikei: {label:'私立（理系）', cost:1355000,years:4},
+  ika:            {label:'医科歯科（私立）',cost:5000000,years:6},
+  tanki:          {label:'短期大学',     cost:1100000,years:2},
+  senmon:         {label:'専門学校',     cost:1100000,years:2},
+};
+const EDU_DEFAULTS={
+  kinder:{pub:165000,pri:309000},
+  elem:  {pub:353000,pri:1667000},
+  mid:   {pub:539000,pri:1436000},
+  high:  {pub:513000,pri:1054000},
+};
+const EDU_PRESETS_MAP={
+  public: {kinder:'pub',elem:'pub',mid:'pub',high:'pub',univ:'kokkori_bunkei'},
+  private:{kinder:'pri',elem:'pri',mid:'pri',high:'pri',univ:'shiritsu_bunkei'},
+  mixed:  {kinder:'pub',elem:'pub',mid:'pri',high:'pri',univ:'shiritsu_bunkei'}
+};
+let _activeEduTab=0;
+
+function updateChildInputs(){
+  const n=+document.getElementById('children').value;
+  const container=document.getElementById('childBirthdates');
+  const labels=['第一子','第二子','第三子','第四子','第五子'];
+  const defaults=[[2017,1],[2020,1],[2023,1],[2025,1],[2026,1]];
+  if(n===0){container.innerHTML='';rebuildEduPanels(0);return;}
+  // 既存値を保持
+  const prevVals=[];
+  for(let i=0;i<n;i++){
+    const y=document.getElementById('childBY-'+i)?.value;
+    const m=document.getElementById('childBM-'+i)?.value;
+    const d=document.getElementById('childBD-'+i)?.value;
+    const g=document.getElementById('childGender-'+i)?.value||'male';
+    prevVals[i]=[y||defaults[i][0],m||defaults[i][1],d||'',g];
+  }
+  let html='<div style="display:grid;grid-template-columns:repeat('+Math.min(n,3)+',1fr);gap:10px;margin-bottom:10px">';
+  for(let i=0;i<n;i++){
+    const vy=prevVals[i][0],vm=prevVals[i][1],vd=prevVals[i][2],vg=prevVals[i][3]||'male';
+    const age=calcAge(+vy,+vm);
+    const prevName=document.getElementById('childName-'+i)?.value||'';
+    html+=`<div class="pcol"><div class="pcol-title" style="font-size:12px">${labels[i]}</div>
+      <div class="fld" style="margin-bottom:6px"><label>氏名</label><input type="text" id="childName-${i}" value="${prevName}" placeholder="${labels[i]}" oninput="refreshInsWhoOptions()"></div>
+      <div class="fld"><label>生年月日</label>
+        <div style="display:flex;gap:3px;align-items:center;margin-bottom:3px"><input type="number" id="childBY-${i}" class="bd-num" value="${vy}" min="2000" max="${_curY}" style="width:68px" oninput="updateChildAgeDisp(${i})"><span style="font-size:11px;color:var(--text2)">年</span></div>
+        <div style="display:flex;gap:3px;align-items:center"><input type="number" id="childBM-${i}" class="bd-num" value="${vm}" min="1" max="12" style="width:38px" oninput="updateChildAgeDisp(${i})"><span style="font-size:11px;color:var(--text2)">月</span><input type="number" id="childBD-${i}" class="bd-num" value="${vd}" min="1" max="31" style="width:38px" placeholder="1"><span style="font-size:11px;color:var(--text2)">日</span></div>
+      </div>
+      <div class="fld" style="margin-top:4px"><label>性別</label><select id="childGender-${i}"><option value="male"${vg==='male'?' selected':''}>男性</option><option value="female"${vg==='female'?' selected':''}>女性</option></select></div>
+      <div id="childAgeDisp-${i}" style="font-size:12px;color:var(--text3);margin-top:3px">現在 ${age}歳</div>
+    </div>`;
+  }
+  html+='</div>';
+  container.innerHTML=html;
+  rebuildEduPanels(n);
+  calcChildAllowance();
+  refreshInsWhoOptions();
+}
+function updateChildAgeDisp(i){
+  const by=+document.getElementById('childBY-'+i)?.value||2017;
+  const bm=+document.getElementById('childBM-'+i)?.value||1;
+  const el=document.getElementById('childAgeDisp-'+i);
+  if(el)el.textContent='現在 '+calcAge(by,bm)+'歳';
+  calcChildAllowance();
+}
+
+function rebuildEduPanels(n){
+  const tabsEl=document.getElementById('eduChildTabs');
+  const panelsEl=document.getElementById('eduChildPanels');
+  if(n===0){tabsEl.style.display='none';panelsEl.innerHTML='<p class="note">子供なし</p>';return;}
+  const labels=['第一子','第二子','第三子','第四子','第五子'];
+  tabsEl.style.display=n>1?'flex':'none';
+  // 既存の入力値を保存
+  const saved=[];
+  for(let i=0;i<n;i++){
+    const s={};
+    ['kinder','elem','mid','high'].forEach(st=>{
+      s[st+'_pub']=document.getElementById('edu_'+st+'_pub_'+i)?.value||EDU_DEFAULTS[st].pub;
+      s[st+'_pri']=document.getElementById('edu_'+st+'_pri_'+i)?.value||EDU_DEFAULTS[st].pri;
+      s[st+'_sel']=document.getElementById('edu_'+st+'_sel_'+i)?.value||(st==='mid'||st==='high'?'pri':'pub');
+    });
+    s.univ_type=document.getElementById('edu_univ_type_'+i)?.value||'shiritsu_bunkei';
+    s.univ_cost=document.getElementById('edu_univ_cost_'+i)?.value||UNIV_PRESETS.shiritsu_bunkei.cost;
+    s.univ_years=document.getElementById('edu_univ_years_'+i)?.value||4;
+    s.extra=document.getElementById('edu_extra_'+i)?.value||0;
+    s.remit_flag=document.getElementById('remitance_flag_'+i)?.value||'0';
+    s.remit_amt=document.getElementById('remitance_amt_'+i)?.value||1200000;
+    s.remit_init=document.getElementById('remitance_init_'+i)?.value||500000;
+    s.marriage_amt=document.getElementById('marriage_amt_'+i)?.value||0;
+    s.marriage_age=document.getElementById('marriage_age_'+i)?.value||30;
+    saved[i]=s;
+  }
+  tabsEl.innerHTML=labels.slice(0,n).map((l,i)=>`<button class="child-tab${i===0?' on':''}" onclick="swEduTab(${i})">${l}</button>`).join('');
+  panelsEl.innerHTML=labels.slice(0,n).map((l,i)=>{
+    const s=saved[i];
+    const up=UNIV_PRESETS[s.univ_type]||UNIV_PRESETS.shiritsu_bunkei;
+    return `<div id="edu-panel-${i}" style="display:${i===0?'block':'none'}">
+      <div class="g2" style="margin-bottom:10px">
+        <div class="fld"><label>プリセット</label>
+          <select id="eduPreset_${i}" onchange="applyEduPreset(${i})">
+            <option value="public">公立中心</option><option value="private">私立中心</option>
+            <option value="mixed" selected>ミックス</option><option value="custom">カスタム</option>
+          </select>
+        </div>
+      </div>
+      <table class="edu-table">
+        <thead><tr><th>種別</th><th>期間</th><th>公立（円/年）</th><th>私立（円/年）</th><th>選択</th></tr></thead>
+        <tbody>
+          ${['kinder','elem','mid','high'].map(st=>{
+            const periods={kinder:'3年',elem:'6年',mid:'3年',high:'3年'};
+            const names={kinder:'幼稚園',elem:'小学校',mid:'中学校',high:'高校'};
+            return `<tr><td>${names[st]}</td><td>${periods[st]}</td>
+              <td><input class="edu-input" id="edu_${st}_pub_${i}" value="${s[st+'_pub']}" oninput="updateEduPreview(${i})"></td>
+              <td><input class="edu-input" id="edu_${st}_pri_${i}" value="${s[st+'_pri']}" oninput="updateEduPreview(${i})"></td>
+              <td><select id="edu_${st}_sel_${i}" style="font-size:11px" onchange="updateEduPreview(${i})">
+                <option value="pub"${s[st+'_sel']==='pub'?' selected':''}>公立</option>
+                <option value="pri"${s[st+'_sel']==='pri'?' selected':''}>私立</option>
+              </select></td></tr>`;
+          }).join('')}
+          <tr><td>大学・専門</td><td id="univ_dur_disp_${i}">${s.univ_years}年</td>
+            <td colspan="2" style="text-align:left;padding:3px 6px">
+              <select id="edu_univ_type_${i}" onchange="applyUnivPreset(${i})" style="font-size:12px;width:100%">
+                ${Object.entries(UNIV_PRESETS).map(([k,v])=>`<option value="${k}"${k===s.univ_type?' selected':''}>${v.label}</option>`).join('')}
+                <option value="custom">カスタム</option>
+              </select>
+            </td>
+            <td><input class="edu-input" id="edu_univ_cost_${i}" value="${s.univ_cost}" oninput="updateEduPreview(${i})">
+                <input type="hidden" id="edu_univ_years_${i}" value="${s.univ_years}"></td></tr>
+          <tr><td>習い事・塾/年</td><td>小中高</td><td colspan="2"><input class="edu-input" style="width:100px" id="edu_extra_${i}" value="${s.extra}" oninput="updateEduPreview(${i})"></td><td><span style="font-size:10px;color:var(--text3)">追加費用</span></td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;background:var(--surface2);border-radius:var(--radius);padding:10px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px">大学進学中の仕送り</div>
+        <div class="g3">
+          <div class="fld"><label>有無</label><select id="remitance_flag_${i}" onchange="updateEduPreview(${i})"><option value="0"${s.remit_flag==='0'?' selected':''}>なし（自宅）</option><option value="1"${s.remit_flag==='1'?' selected':''}>あり（下宿）</option></select></div>
+          <div class="fld"><label>年間仕送り（円）</label><input type="number" id="remitance_amt_${i}" value="${s.remit_amt}" step="100000" oninput="updateEduPreview(${i})"></div>
+          <div class="fld"><label>入学金・引越（円）</label><input type="number" id="remitance_init_${i}" value="${s.remit_init}" step="100000" oninput="updateEduPreview(${i})"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;background:#fdf2f6;border:1px solid #f3c6d6;border-radius:var(--radius);padding:10px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px">💍 結婚費用の援助</div>
+        <div class="g2">
+          <div class="fld"><label>援助額（円）</label><input type="number" id="marriage_amt_${i}" value="${s.marriage_amt}" step="100000" oninput="updateEduPreview(${i})"></div>
+          <div class="fld"><label>援助時の子の年齢（歳・0=なし）</label><input type="number" id="marriage_age_${i}" value="${s.marriage_age}" oninput="updateEduPreview(${i})"></div>
+        </div>
+      </div>
+      <div id="eduCostPreview_${i}" class="note" style="margin-top:6px"></div>
+    </div>`;
+  }).join('');
+  _activeEduTab=0;
+  for(let i=0;i<n;i++)updateEduPreview(i);
+}
+function swEduTab(i){
+  _activeEduTab=i;
+  const n=+document.getElementById('children').value;
+  for(let j=0;j<n;j++){
+    const p=document.getElementById('edu-panel-'+j);
+    if(p)p.style.display=j===i?'block':'none';
+  }
+  document.querySelectorAll('.child-tab').forEach((t,j)=>t.classList.toggle('on',j===i));
+}
+function applyUnivPreset(ci){
+  const key=document.getElementById('edu_univ_type_'+ci)?.value;
+  const p=UNIV_PRESETS[key];if(!p)return;
+  document.getElementById('edu_univ_cost_'+ci).value=p.cost;
+  document.getElementById('edu_univ_years_'+ci).value=p.years;
+  document.getElementById('univ_dur_disp_'+ci).textContent=p.years+'年';
+  updateEduPreview(ci);
+}
+function applyEduPreset(ci){
+  const p=EDU_PRESETS_MAP[document.getElementById('eduPreset_'+ci)?.value];
+  if(!p)return;
+  ['kinder','elem','mid','high'].forEach(st=>{
+    const el=document.getElementById('edu_'+st+'_sel_'+ci);
+    if(el)el.value=p[st];
+  });
+  const ut=document.getElementById('edu_univ_type_'+ci);
+  if(ut){ut.value=p.univ;applyUnivPreset(ci);}
+  updateEduPreview(ci);
+}
+function getEduCostForChild(ci,stage){
+  if(stage==='univ')return +document.getElementById('edu_univ_cost_'+ci)?.value||0;
+  const sel=document.getElementById('edu_'+stage+'_sel_'+ci)?.value||'pub';
+  return +document.getElementById('edu_'+stage+'_'+sel+'_'+ci)?.value||0;
+}
+function getUnivYearsForChild(ci){return +document.getElementById('edu_univ_years_'+ci)?.value||4;}
+function getEduExtraForChild(ci){return +document.getElementById('edu_extra_'+ci)?.value||0;}
+function updateEduPreview(ci){
+  const stageYrs={kinder:3,elem:6,mid:3,high:3};
+  let total=['kinder','elem','mid','high'].reduce((s,st)=>s+getEduCostForChild(ci,st)*stageYrs[st],0);
+  const uy=getUnivYearsForChild(ci);
+  total+=getEduCostForChild(ci,'univ')*uy+getEduExtraForChild(ci)*9;
+  const rf=document.getElementById('remitance_flag_'+ci)?.value==='1';
+  const remit=rf?(+document.getElementById('remitance_amt_'+ci)?.value*uy)+(+document.getElementById('remitance_init_'+ci)?.value):0;
+  const marriage=+document.getElementById('marriage_amt_'+ci)?.value||0;
+  const el=document.getElementById('eduCostPreview_'+ci);
+  if(el)el.textContent='1人あたり総額目安: 約'+fmt(Math.round(total+remit+marriage))+'円'+(marriage>0?'（結婚援助 '+fmt(marriage)+'円含む）':'');
+}
+
+function toggleHousing(){
+  const t=document.getElementById('housingType').value;
+  document.getElementById('loanSection').style.display=t==='owned'?'block':'none';
+  document.getElementById('fixedTaxSection').style.display=(t==='owned'||t==='paid')?'block':'none';
+  calcLoan();
+}
+function toggleSpLoan(){
+  const en=document.getElementById('spLoanEnabled').checked;
+  document.getElementById('spLoanFields').style.display=en?'block':'none';
+  calcLoan();
+}
+
+// 元利均等返済の月額自動計算
+function calcMonthlyPayment(principal,annualRate,years){
+  if(annualRate===0)return principal/(years*12);
+  const r=annualRate/100/12;
+  const n=years*12;
+  return principal*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+}
+
+// 残債計算：借入年から経過した月数で元利均等残高を求める
+function calcRemainingBalance(principal,annualRate,years,borrowYear){
+  const elapsed=Math.max(0,(getPlanYM().y-borrowYear));
+  if(elapsed>=years)return 0;
+  if(annualRate===0){return principal*(1-elapsed/years);}
+  const r=annualRate/100/12;
+  const n=years*12;
+  const mo=principal*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+  const elapsedMonths=elapsed*12;
+  return principal*Math.pow(1+r,elapsedMonths)-mo*(Math.pow(1+r,elapsedMonths)-1)/r;
+}
+
+function autoCalcLoanMonthly(who){
+  if(who==='self'){
+    const p=+document.getElementById('selfLoanAmt').value||0;
+    const r=+document.getElementById('loanRate').value||1;
+    const y=+document.getElementById('selfLoanYears').value||35;
+    document.getElementById('loanMonthly').value=Math.round(calcMonthlyPayment(p,r,y));
+  }else{
+    const p=+document.getElementById('spLoanAmt').value||0;
+    const r=+document.getElementById('spLoanRate').value||1;
+    const y=+document.getElementById('spLoanYears').value||35;
+    document.getElementById('spLoanMonthly').value=Math.round(calcMonthlyPayment(p,r,y));
+  }
+  calcLoan();
+}
+
+function calcLoan(){
+  const selfA=getSelfAge()||40;
+  const spA=getSpAge()||38;
+
+  // 本人ローン
+  const selfAmt=+document.getElementById('selfLoanAmt').value||0;
+  const selfRate=+document.getElementById('loanRate').value||1;
+  const selfYrs=+document.getElementById('selfLoanYears').value||35;
+  const selfBorrowY=+document.getElementById('selfLoanYear').value||2020;
+  const selfMo=+document.getElementById('loanMonthly').value||0;
+  const selfDansin=document.getElementById('selfDansin')?.value||'yes';
+  const selfEndAge=selfA+(selfYrs-Math.max(0,getPlanYM().y-selfBorrowY));
+  const selfRemBal=Math.max(0,calcRemainingBalance(selfAmt,selfRate,selfYrs,selfBorrowY));
+  const selfRemYrs=Math.max(0,selfYrs-(getPlanYM().y-selfBorrowY));
+
+  // 完済年齢欄を自動更新
+  const endAgeEl=document.getElementById('loanEndAge');
+  if(endAgeEl)endAgeEl.value=Math.round(selfEndAge);
+
+  const selfPrev=document.getElementById('selfLoanPreview');
+  if(selfPrev){
+    const totalPay=selfMo*12*selfRemYrs;
+    const interest=Math.max(0,totalPay-selfRemBal);
+    selfPrev.innerHTML=
+      `現在の残債: <b>${fmtM(selfRemBal)}</b>　`+
+      `月額: <b>${fmt(Math.round(selfMo))}円</b>　`+
+      `残り${Math.round(selfRemYrs)}年`+
+      (selfDansin==='yes'?'　<span style="color:var(--green);font-weight:700">団信あり</span>':'　<span style="color:var(--text3)">団信なし</span>')+
+      `<br>総返済見込み: ${fmtM(totalPay)}（利息 ${fmtM(interest)}）`;
+  }
+
+  // 配偶者ローン
+  let spRemBal=0,spMo=0,spRemYrs=0;
+  const spEnabled=document.getElementById('spLoanEnabled')?.checked;
+  if(spEnabled){
+    const spAmt=+document.getElementById('spLoanAmt').value||0;
+    const spRate=+document.getElementById('spLoanRate').value||1;
+    const spYrs=+document.getElementById('spLoanYears').value||35;
+    const spBorrowY=+document.getElementById('spLoanYear').value||2020;
+    spMo=+document.getElementById('spLoanMonthly').value||0;
+    const spDansin=document.getElementById('spDansin')?.value||'yes';
+    spRemBal=Math.max(0,calcRemainingBalance(spAmt,spRate,spYrs,spBorrowY));
+    spRemYrs=Math.max(0,spYrs-(getPlanYM().y-spBorrowY));
+    const spPrev=document.getElementById('spLoanPreview');
+    if(spPrev){
+      const totalPay=spMo*12*spRemYrs;
+      const interest=Math.max(0,totalPay-spRemBal);
+      spPrev.innerHTML=
+        `現在の残債: <b>${fmtM(spRemBal)}</b>　`+
+        `月額: <b>${fmt(Math.round(spMo))}円</b>　`+
+        `残り${Math.round(spRemYrs)}年`+
+        (spDansin==='yes'?'　<span style="color:var(--green);font-weight:700">団信あり</span>':'　<span style="color:var(--text3)">団信なし</span>')+
+        `<br>総返済見込み: ${fmtM(totalPay)}（利息 ${fmtM(interest)}）`;
+    }
+  }
+
+  const totalRemBal=selfRemBal+spRemBal;
+  const totalPreview=document.getElementById('loanTotalPreview');
+  if(totalPreview){
+    totalPreview.innerHTML=spEnabled
+      ?`合計残債: <b>${fmtM(totalRemBal)}</b>（本人 ${fmtM(selfRemBal)}＋配偶者 ${fmtM(spRemBal)}）　合計月返済: ${fmt(Math.round(selfMo+spMo))}円`
+      :`残債: <b>${fmtM(selfRemBal)}</b>　月々の返済: ${fmt(Math.round(selfMo))}円`;
+  }
+
+  // 必要保障額の住宅ローン残高欄に自動反映
+  // 本人死亡時：団信ありなら本人分残債は消える→配偶者分のみ。なしなら全額
+  const selfDansinVal=document.getElementById('selfDansin')?.value||'yes';
+  const spDansinVal=document.getElementById('spDansin')?.value||'yes';
+  const mortgageOnSelfDeath=selfDansinVal==='yes'?spRemBal:totalRemBal;
+  const mortgageOnSpDeath=spEnabled?(spDansinVal==='yes'?selfRemBal:totalRemBal):selfRemBal;
+  const reqSelfMg=document.getElementById('reqSelfMortgage');
+  const reqSpMg=document.getElementById('reqSpMortgage');
+  if(reqSelfMg)reqSelfMg.value=Math.round(mortgageOnSelfDeath);
+  if(reqSpMg)reqSpMg.value=Math.round(mortgageOnSpDeath);
+}
+
+// 生活費合計をリアルタイム表示
+const LIVING_IDS=['cFood','cDaily','cDining','cElec','cGas','cWater','cComm','cTransport','cCar','cParking','cLeisure','cSocial','cAllowance','cTravel','cMedical','cClothing','cOther'];
+// 生活費の月額合計を取得（入力方法に応じて）
+function getMonthlyLiving(){
+  if(document.getElementById('livingMode')?.value==='simple')
+    return +document.getElementById('cSimple')?.value||0;
+  return LIVING_IDS.reduce((s,id)=>s+(+document.getElementById(id)?.value||0),0);
+}
+function updateLivingTotal(){
+  const monthly=getMonthlyLiving();
+  const el=document.getElementById('livingTotal');
+  if(el)el.textContent='月額合計: '+fmt(monthly)+'円 ／ 年間: '+fmt(monthly*12)+'円';
+}
+// 詳細入力／簡易入力の切替
+function toggleLivingMode(){
+  const simple=document.getElementById('livingMode')?.value==='simple';
+  document.getElementById('livingSimpleBox').style.display=simple?'block':'none';
+  document.getElementById('livingDetailBox').style.display=simple?'none':'block';
+  updateLivingTotal();
+}
+LIVING_IDS.forEach(id=>document.getElementById(id)?.addEventListener('input',updateLivingTotal));
+
+// ── 社会保険料自動計算 ──────────────────────────────────────────
+// 協会けんぽ（東京）2024年度料率を使用
+// 健康保険: 9.98% → 本人負担 4.99%  ※40歳以上は介護保険込み 11.58% → 5.79%
+// 厚生年金: 18.3% → 本人負担 9.15%  標準報酬月額は139万円上限
+// 雇用保険: 1.55% → 本人負担 0.6%
+// 所得税概算: 給与所得控除後の課税所得に税率適用（簡易）
+// 住民税: 課税所得 × 10% + 均等割 5000円（概算）
+function calcSocialInsurance(who){
+  const incomeEl=document.getElementById(who==='self'?'selfIncome':'spIncome');
+  const dispEl=document.getElementById(who==='self'?'selfInsEst':'spInsEst');
+  if(!incomeEl||!dispEl)return;
+  const grossIncome=+incomeEl.value||0;
+  if(grossIncome<=0){dispEl.textContent='';return;}
+
+  const age=who==='self'?getSelfAge():getSpAge();
+
+  // 企業型DC（選択制）の掛金は標準報酬月額・課税所得から控除される
+  const dcAnnual=getDcMonthly(who)*12;
+  const baseIncome=Math.max(0,grossIncome-dcAnnual);
+
+  // 健康保険料（本人負担）
+  const healthRate=age>=40?0.0579:0.0499;
+  // 標準報酬月額 = 課税対象年収/12、上限135万円
+  const stdMonthly=Math.min(baseIncome/12,1350000);
+  const healthIns=Math.round(stdMonthly*healthRate)*12;
+
+  // 厚生年金保険料（本人負担）標準報酬月額上限65万円
+  const pensionBase=Math.min(baseIncome/12,650000);
+  const pensionIns=Math.round(pensionBase*0.0915)*12;
+
+  // 雇用保険料（本人負担）※実賃金ベース
+  const employIns=Math.round(grossIncome*0.006);
+
+  const totalSocialIns=healthIns+pensionIns+employIns;
+
+  // 給与所得控除（企業型DC控除後の収入ベース）
+  let deduction=0;
+  if(baseIncome<=1625000)deduction=550000;
+  else if(baseIncome<=1800000)deduction=baseIncome*0.4-100000;
+  else if(baseIncome<=3600000)deduction=baseIncome*0.3+80000;
+  else if(baseIncome<=6600000)deduction=baseIncome*0.2+440000;
+  else if(baseIncome<=8500000)deduction=baseIncome*0.1+1100000;
+  else deduction=1950000;
+  const kyuyoShotoku=baseIncome-deduction;
+
+  // 基礎控除 48万円、社会保険料控除
+  const taxableIncome=Math.max(0,kyuyoShotoku-480000-totalSocialIns);
+
+  // 所得税（簡易）
+  let incomeTax=0;
+  if(taxableIncome<=1950000)incomeTax=taxableIncome*0.05;
+  else if(taxableIncome<=3300000)incomeTax=taxableIncome*0.10-97500;
+  else if(taxableIncome<=6950000)incomeTax=taxableIncome*0.20-427500;
+  else if(taxableIncome<=9000000)incomeTax=taxableIncome*0.23-636000;
+  else if(taxableIncome<=18000000)incomeTax=taxableIncome*0.33-1536000;
+  else incomeTax=taxableIncome*0.40-2796000;
+  incomeTax=Math.round(Math.max(0,incomeTax)*1.021); // 復興税
+
+  // 住民税（概算）
+  const residentTax=Math.round(Math.max(0,taxableIncome-330000)*0.10)+5000;
+
+  const takeHome=Math.round(grossIncome-dcAnnual-totalSocialIns-incomeTax-residentTax);
+
+  dispEl.innerHTML=
+    `社保: <b>${fmt(Math.round(totalSocialIns/10000)*10000)}円</b>/年`+
+    `（健保${fmt(Math.round(healthIns/1000)*1000)}・厚年${fmt(Math.round(pensionIns/1000)*1000)}・雇用${fmt(employIns)}）`+
+    (dcAnnual>0?`<br>企業型DC拠出: <b style="color:#6c5ce7">${fmt(dcAnnual)}円/年</b>（社保・税の対象外）`:'')+
+    `<br>所得税: ${fmt(incomeTax)}円 ／ 住民税: ${fmt(residentTax)}円`+
+    `<br>手取り概算: <b style="color:var(--green)">${fmt(takeHome)}円/年</b>`;
+}
+
+// ── 児童手当自動試算 ────────────────────────────────────────────
+// 2024年10月改正版: 0-2歳 15000円/月、3歳-中学卒業 10000円/月（第3子以降 30000円）
+// 高校生 10000円/月（2024年度改正）
+// 所得制限撤廃（2024年10月〜）
+function calcChildAllowance(){
+  const n=+document.getElementById('children')?.value||0;
+  let totalMonthly=0;
+  const notes=[];
+  for(let i=0;i<n;i++){
+    const by=+document.getElementById('childBY-'+i)?.value||(_curY-5);
+    const bm=+document.getElementById('childBM-'+i)?.value||1;
+    const age=calcAge(by,bm);
+    const rank=i+1; // 第何子
+    let monthly=0;
+    if(age<=2)monthly=15000;
+    else if(age<=15)monthly=rank>=3?30000:10000; // 中学卒業まで（15歳の年度末）
+    else if(age<=18)monthly=10000; // 高校生（18歳年度末まで）
+    if(monthly>0){totalMonthly+=monthly;notes.push(`第${rank}子${age}歳:${fmt(monthly)}円/月`);}
+  }
+  const annual=totalMonthly*12;
+  const el=document.getElementById('childAllowanceAuto');
+  if(el)el.value=annual;
+  const noteEl=document.getElementById('childAllowanceNote');
+  if(noteEl)noteEl.textContent=annual>0
+    ?'試算: '+notes.join('　')+'　→ 年間'+fmt(annual)+'円'
+    :'※ 子供の年齢・人数から児童手当を自動試算します。';
+}
+
+// ── 借入追加（住宅ローン以外）──────────────────────────────────
+// ── 遺族年金自動計算 ────────────────────────────────────────────
+// 「被保険者（死亡した方）」の収入から試算
+// 遺族基礎年金: 子あり配偶者 = 79万5000円/年（R8年度）+ 子加算
+// 遺族厚生年金: 平均標準報酬月額 × 0.005481 × 加入見込み年数 × 3/4
+// ※ 国民年金のみは遺族厚生年金なし（遺族基礎年金のみ）
+function autoCalcWidowPension(deceasedWho){
+  // deceasedWho = 'self'（本人死亡時→配偶者が受取）/ 'sp'（配偶者死亡時→本人が受取）
+  const incomeId=deceasedWho==='self'?'selfIncome':'spIncome';
+  const pensionTypeId=deceasedWho==='self'?'selfPensionType':'spPensionType';
+  const avgSalaryId=deceasedWho==='self'?'selfAvgSalary':'spAvgSalary';
+  const pensionYrsId=deceasedWho==='self'?'selfPensionYrs':'spPensionYrs';
+  // 受け取り側（遺族）の人数
+  const n=+document.getElementById('children')?.value||0;
+  const income=+document.getElementById(incomeId)?.value||0;
+  const pType=document.getElementById(pensionTypeId)?.value||'kosei';
+
+  // 遺族基礎年金（子のある配偶者）
+  // R6年度: 本体 816000円/年、第1子・第2子加算各234800円、第3子以降78300円
+  let ikBase=0;
+  let childUnder18=0;
+  for(let i=0;i<n;i++){
+    const by=+document.getElementById('childBY-'+i)?.value||(_curY-5);
+    const bm=+document.getElementById('childBM-'+i)?.value||1;
+    const age=calcAge(by,bm);
+    if(age<18)childUnder18++;
+  }
+  if(childUnder18>0){
+    ikBase=816000; // 遺族基礎年金 本体
+    if(childUnder18>=1)ikBase+=234800;
+    if(childUnder18>=2)ikBase+=234800;
+    if(childUnder18>=3)ikBase+=(childUnder18-2)*78300;
+  }
+
+  // 遺族厚生年金
+  let ikKosei=0;
+  if(pType==='kosei'||pType==='ideco'){
+    const avgSalary=+document.getElementById(avgSalaryId)?.value||(income/12);
+    const yrs=+document.getElementById(pensionYrsId)?.value||40;
+    // 保証期間: 加入年数が25年未満は25年として計算
+    const calcYrs=Math.max(yrs,25);
+    ikKosei=Math.round(avgSalary*0.005481*calcYrs*0.75);
+  }
+
+  const totalMonthly=Math.round((ikBase+ikKosei)/12);
+  const outputId=deceasedWho==='self'?'reqSelfWidowPension':'reqSpWidowPension';
+  const noteId=deceasedWho==='self'?'reqSelfWidowNote':'reqSpWidowNote';
+  const el=document.getElementById(outputId);
+  if(el)el.value=totalMonthly;
+  const noteEl=document.getElementById(noteId);
+  if(noteEl){
+    const parts=[];
+    if(ikBase>0)parts.push(`遺族基礎年金${fmt(Math.round(ikBase/12))}円/月（子${childUnder18}人）`);
+    if(ikKosei>0)parts.push(`遺族厚生年金${fmt(Math.round(ikKosei/12))}円/月`);
+    if(parts.length>0)noteEl.textContent='試算: '+parts.join('＋');
+    else noteEl.textContent='子なし・国民年金のみのため遺族年金なし（中高齢寡婦加算等は別途確認）';
+  }
+}
+
+let _loanExtraId=0;
+function addLoanExtra(){
+  const id=_loanExtraId++;
+  const div=document.createElement('div');
+  div.id='loanExtra-'+id;
+  div.style.cssText='border:1px solid var(--border);border-radius:var(--radius);padding:10px;margin-bottom:8px;background:var(--surface)';
+  div.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:700;color:var(--text2)">借入 #${id+1}</span>
+      <button class="del-btn" onclick="document.getElementById('loanExtra-${id}').remove()">✕</button>
+    </div>
+    <div class="g3">
+      <div class="fld"><label>借入名</label><input type="text" id="lexName-${id}" value="カーローン" placeholder="例：カーローン"></div>
+      <div class="fld"><label>残高（円）</label><input type="number" id="lexBal-${id}" value="1000000" step="100000"></div>
+      <div class="fld"><label>月返済（円）</label><input type="number" id="lexMonthly-${id}" value="30000" step="1000"></div>
+    </div>
+    <div class="g2" style="margin-top:8px">
+      <div class="fld"><label>完済年（西暦）</label><input type="number" id="lexEndY-${id}" value="${new Date().getFullYear()+3}" min="2025" max="2100" step="1"></div>
+      <div class="fld"><label>完済月</label><input type="number" id="lexEndM-${id}" value="12" min="1" max="12" step="1"></div>
+    </div>`;
+  document.getElementById('loanExtraList').appendChild(div);
+}
+
+function getLoanExtras(){
+  const list=[];
+  document.querySelectorAll('[id^="loanExtra-"]').forEach(div=>{
+    const id=div.id.replace('loanExtra-','');
+    list.push({
+      name:document.getElementById('lexName-'+id)?.value||'借入',
+      balance:+document.getElementById('lexBal-'+id)?.value||0,
+      monthly:+document.getElementById('lexMonthly-'+id)?.value||0,
+      endY:+document.getElementById('lexEndY-'+id)?.value||0,
+      endM:+document.getElementById('lexEndM-'+id)?.value||12,
+    });
+  });
+  return list;
+}
+
+// ── ライフイベント追加 ──────────────────────────────────────────
+let _lifeEventId=0;
+function addLifeEvent(){
+  const id=_lifeEventId++;
+  const div=document.createElement('div');
+  div.id='lifeEvent-'+id;
+  div.style.cssText='border:1px solid var(--border);border-radius:var(--radius);padding:10px;margin-bottom:8px;background:var(--surface)';
+  div.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:700;color:var(--text2)">イベント #${id+1}</span>
+      <button class="del-btn" onclick="document.getElementById('lifeEvent-${id}').remove()">✕</button>
+    </div>
+    <div class="g3">
+      <div class="fld"><label>イベント名</label><input type="text" id="levName-${id}" value="車の買い替え" placeholder="例：リフォーム"></div>
+      <div class="fld"><label>本人年齢（歳）</label><input type="number" id="levAge-${id}" value="45" min="20" max="90"></div>
+      <div class="fld"><label>費用（円）</label><input type="number" id="levCost-${id}" value="3000000" step="100000"></div>
+    </div>`;
+  document.getElementById('lifeEventList').appendChild(div);
+}
+
+function getLifeEvents(){
+  const list=[];
+  document.querySelectorAll('[id^="lifeEvent-"]').forEach(div=>{
+    const id=div.id.replace('lifeEvent-','');
+    list.push({
+      name:document.getElementById('levName-'+id)?.value||'イベント',
+      age:+document.getElementById('levAge-'+id)?.value||45,
+      cost:+document.getElementById('levCost-'+id)?.value||0,
+    });
+  });
+  return list;
+}
+
+// 必要保障期間モード
+function updateReqMode(who){
+  const modeEl=document.getElementById(who==='self'?'reqSelfMode':'reqSpMode');
+  const fldEl=document.getElementById(who==='self'?'reqSelfUntilFld':'reqSpUntilFld');
+  const ageEl=document.getElementById(who==='self'?'reqSelfUntilAge':'reqSpUntilAge');
+  const mode=modeEl.value;
+  fldEl.style.display=mode==='custom'?'flex':'none';
+  if(mode==='youngest'){
+    const n=+document.getElementById('children').value;
+    let minChildAge=Infinity;
+    for(let i=0;i<n;i++){
+      const ca=calcAge(+document.getElementById('childBY-'+i)?.value||2017,+document.getElementById('childBM-'+i)?.value||1);
+      if(ca<minChildAge)minChildAge=ca;
+    }
+    if(n===0||!isFinite(minChildAge)){fldEl.style.display='flex';return;}
+    // 末子が22歳（大学卒）になる時の生存配偶者/本人の年齢
+    const baseAge=who==='self'?getSpAge():getSelfAge();
+    ageEl.value=Math.max(baseAge,baseAge+(22-minChildAge));
+  } else if(mode==='retire'){
+    ageEl.value=who==='self'
+      ?(+document.getElementById('spRetireAge').value||65)
+      :(+document.getElementById('selfRetireAge').value||65);
+  }
+}
+
+// 年金計算：老齢基礎年金満額=70,400円/月（R8年度）
+// 厚生年金報酬比例: 平均標準報酬月額(円) × 0.005481 × 加入年数
+function calcPension(who){
+  const p=who==='self'?'self':'sp';
+  const t=document.getElementById(p+'PensionType').value;
+  document.getElementById(p+'AutoRow').style.display=t==='manual'?'none':'block';
+  document.getElementById(p+'IdecoFld').style.display=t==='ideco'?'flex':'none';
+  document.getElementById(p+'DcFld').style.display=t==='dc'?'flex':'none';
+  document.getElementById(p+'ManualFld').style.display=t==='manual'?'flex':'none';
+  if(t==='manual'){document.getElementById(p+'Est').textContent='';return;}
+  const avg=+(document.getElementById(p+'AvgSalary').value||0); // 円/月
+  const yrs=+(document.getElementById(p+'PensionYrs').value||0);
+  const BASE=70400; // 円/月
+  let m=0,note='';
+  if(t==='kosei') m=BASE+(avg*0.005481*yrs);
+  else if(t==='kokumin') m=BASE*(yrs/40);
+  else if(t==='ideco'){const idm=+(document.getElementById(p+'Ideco').value||0);m=BASE+(avg*0.005481*yrs)+idm*0.7;}
+  else if(t==='dc'){
+    // 企業型DC（選択制）：掛金分だけ標準報酬が下がり報酬比例が減少、DC資産からの受取を上乗せ
+    const dcm=+(document.getElementById(p+'Dc').value||0);
+    const avgAdj=Math.max(0,avg-dcm);
+    m=BASE+(avgAdj*0.005481*yrs)+dcm*0.7;
+    note='（厚生年金は標準報酬−掛金で算定）';
+  }
+  const mk=Math.round(m);
+  document.getElementById(p+'Est').textContent='試算: 月額 約'+fmt(mk)+'円（参考値）'+note;
+  document.getElementById(p+'PensionAmt').value=mk;
+}
+
+// ── 標準報酬月額：年収から自動計算 ─────────────────────────────
+// 厚生年金保険の標準報酬月額等級表（2024年度）
+// 月収＝年収÷12で等級を決定。上限は65万円（32等級）
+// ※ 給与所得控除後の概算は使わず、年収÷12をそのまま「月収」として等級参照
+const HYOJUN_HOSHU_TABLE=[
+  [58000,0,63000],[68000,63000,73000],[78000,73000,83000],[88000,83000,93000],
+  [98000,93000,101000],[104000,101000,107000],[110000,107000,114000],[118000,114000,122000],
+  [126000,122000,130000],[134000,130000,138000],[142000,138000,146000],[150000,146000,155000],
+  [160000,155000,165000],[170000,165000,175000],[180000,175000,185000],[190000,185000,195000],
+  [200000,195000,210000],[220000,210000,230000],[240000,230000,250000],[260000,250000,270000],
+  [280000,270000,290000],[300000,290000,310000],[320000,310000,330000],[340000,330000,350000],
+  [360000,350000,370000],[380000,370000,395000],[410000,395000,425000],[440000,425000,455000],
+  [470000,455000,485000],[500000,485000,515000],[530000,515000,545000],[560000,545000,575000],
+  [590000,575000,605000],[620000,605000,635000],[650000,635000,Infinity],
+];
+function incomeToHyojun(annualIncome){
+  // 年収÷12で月収を算出し、等級表と照合
+  const monthly=annualIncome/12;
+  for(const [std,lo,hi] of HYOJUN_HOSHU_TABLE){
+    if(monthly>=lo&&monthly<hi)return std;
+  }
+  return 650000; // 上限
+}
+function autoFillAvgSalary(who){
+  const incomeEl=document.getElementById(who==='self'?'selfIncome':'spIncome');
+  const salEl=document.getElementById(who==='self'?'selfAvgSalary':'spAvgSalary');
+  const noteEl=document.getElementById(who==='self'?'selfAvgSalaryNote':'spAvgSalaryNote');
+  if(!incomeEl||!salEl)return;
+  const annual=+incomeEl.value||0;
+  if(annual<=0){if(noteEl)noteEl.textContent='年収を先に入力してください';return;}
+  const hyojun=incomeToHyojun(annual);
+  salEl.value=hyojun;
+  if(noteEl)noteEl.textContent=`年収 ${fmt(annual)}円 → 月収 ${fmt(Math.round(annual/12))}円 → 標準報酬月額 ${fmt(hyojun)}円（等級表より）`;
+  calcPension(who);
+}
+
+// 年収入力時に標準報酬月額を自動更新（初回・変更時）
+function syncAvgSalaryFromIncome(who){
+  const t=document.getElementById(who==='self'?'selfPensionType':'spPensionType')?.value;
+  if(t==='kosei'||t==='ideco'||t==='dc')autoFillAvgSalary(who);
+}
+
+// 保険種別ラベル・タグ色マッピング
+const INS_CATS={
+  death:   {label:'死亡保険',   tag:'tag-term', color:'var(--blue)'},
+  medical: {label:'医療保険',   tag:'tag-med',  color:'#0e7b5a'},
+  cancer:  {label:'がん保険',   tag:'tag-can',  color:'#8b0000'},
+  care:    {label:'介護保険',   tag:'tag-care', color:'#5c3a8e'},
+  damage:  {label:'損害保険',   tag:'tag-dmg',  color:'#7a5c00'},
+  income:  {label:'収入保障',   tag:'tag-inc',  color:'var(--amber)'},
+};
+
+// 被保険者選択肢を動的生成（本人・配偶者＋子供）
+function buildWhoOptions(selected='self'){
+  const selfN=getSelfName()||'本人';
+  const spN=getSpName()||'配偶者';
+  const n=+document.getElementById('children')?.value||0;
+  const childNames=[];
+  const labels=['第一子','第二子','第三子','第四子','第五子'];
+  for(let i=0;i<n;i++){
+    const cn=document.getElementById('childName-'+i)?.value||labels[i]||`子${i+1}`;
+    childNames.push({val:'child'+i,label:cn});
+  }
+  let html=`<option value="self"${selected==='self'?' selected':''}>${selfN}（本人）</option>`;
+  html+=`<option value="sp"${selected==='sp'?' selected':''}>${spN}（配偶者）</option>`;
+  childNames.forEach(c=>{
+    html+=`<option value="${c.val}"${selected===c.val?' selected':''}>${c.label}</option>`;
+  });
+  return html;
+}
+
+// 子供数・名前変更時に全保険ブロックの被保険者欄を更新
+function refreshInsWhoOptions(){
+  document.querySelectorAll('#insList .ins-block').forEach(el=>{
+    const id=el.id.split('-')[1];
+    const sel=document.getElementById('iwho-'+id);
+    if(!sel)return;
+    const current=sel.value;
+    sel.innerHTML=buildWhoOptions(current);
+  });
+}
+
+function addInsLump(nm='',death=10000000,pr=200000,sa=65,sv=5000000,ea=99,payEnd=0,cat='death',who='self',freq='year'){
+  const id=++insCount;
+  const d=document.createElement('div');d.className='ins-block';d.id='ins-'+id;d.dataset.instype='lump';
+  const pe=payEnd||ea;
+  const ci=INS_CATS[cat]||INS_CATS.death;
+  d.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <span class="tag ${ci.tag}" id="icat-tag-${id}">${ci.label}</span>
+    <span style="font-size:12px;color:var(--text3)">一時金・貯蓄型</span>
+    <button class="del-btn" onclick="delRow('ins',${id})" style="margin-left:auto">✕</button></div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>保険種別</label>
+      <select id="icat-${id}" onchange="updateInsTag(${id})">
+        ${Object.entries(INS_CATS).filter(([k])=>k!=='income').map(([k,v])=>`<option value="${k}"${k===cat?' selected':''}>${v.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fld"><label>被保険者</label>
+      <select id="iwho-${id}">${buildWhoOptions(who)}</select>
+    </div>
+    <div class="fld"><label>保険名</label><input type="text" value="${nm}" id="iname-${id}" placeholder="終身保険A"></div>
+  </div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>死亡・給付金額（円）</label><input type="number" value="${death}" step="500000" id="ideath-${id}"></div>
+    <div class="fld"><label>払込頻度</label>
+      <select id="ifreq-${id}" onchange="updateInsPremPrev(${id})">
+        <option value="month"${freq==='month'?' selected':''}>月払い</option>
+        <option value="half"${freq==='half'?' selected':''}>半年払い</option>
+        <option value="year"${freq==='year'?' selected':''}>年払い</option>
+      </select>
+    </div>
+    <div class="fld"><label>保険料（円／回）</label><input type="number" value="${pr}" step="10000" id="iprem-${id}" oninput="updateInsPremPrev(${id})"></div>
+  </div>
+  <div class="note" id="ipremprev-${id}" style="margin-bottom:8px"></div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>払込完了年齢（歳）</label><input type="number" value="${pe}" id="ipayend-${id}"></div>
+    <div class="fld"><label>保険終了年齢</label><input type="number" value="${ea}" id="iend-${id}"></div>
+    <div class="fld"><label>解約年齢（0=なし）</label><input type="number" value="${sa}" id="isurrage-${id}"></div>
+  </div>
+  <div class="fld"><label>解約返戻金（円）</label><input type="number" value="${sv}" step="100000" id="isurrval-${id}"></div>`;
+  document.getElementById('insList').appendChild(d);
+  updateInsPremPrev(id);
+}
+// 払込頻度→年額換算の係数
+function insFreqMult(freq){return freq==='month'?12:(freq==='half'?2:1);}
+// 年払換算プレビューを表示
+function updateInsPremPrev(id){
+  const el=document.getElementById('ipremprev-'+id);
+  if(!el)return;
+  const freq=document.getElementById('ifreq-'+id)?.value||'year';
+  const pr=+(document.getElementById('iprem-'+id)?.value||0);
+  const annual=pr*insFreqMult(freq);
+  const flabel=freq==='month'?'月払い':(freq==='half'?'半年払い':'年払い');
+  el.textContent=`${flabel} ${fmt(pr)}円 → 年換算 ${fmt(annual)}円`;
+}
+function addInsIncome(nm='',mb=100000,pr=150000,sa=40,ea=60,wm=0,payEnd=0,who='self',freq='year'){
+  const id=++insCount;
+  const d=document.createElement('div');d.className='ins-block';d.id='ins-'+id;d.dataset.instype='income';
+  const pe=payEnd||ea;
+  d.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <span class="tag tag-inc">収入保障</span><span style="font-size:12px;color:var(--text3)">月額給付型</span>
+    <button class="del-btn" onclick="delRow('ins',${id})" style="margin-left:auto">✕</button></div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>被保険者</label>
+      <select id="iwho-${id}">${buildWhoOptions(who)}</select>
+    </div>
+    <div class="fld"><label>保険名</label><input type="text" value="${nm}" id="iname-${id}" placeholder="収入保障保険A"></div>
+    <div class="fld"><label>月額給付金（円）</label><input type="number" value="${mb}" step="10000" id="ideath-${id}"></div>
+  </div>
+  <div class="g3" style="margin-bottom:8px">
+    <div class="fld"><label>払込頻度</label>
+      <select id="ifreq-${id}" onchange="updateInsPremPrev(${id})">
+        <option value="month"${freq==='month'?' selected':''}>月払い</option>
+        <option value="half"${freq==='half'?' selected':''}>半年払い</option>
+        <option value="year"${freq==='year'?' selected':''}>年払い</option>
+      </select>
+    </div>
+    <div class="fld"><label>保険料（円／回）</label><input type="number" value="${pr}" step="5000" id="iprem-${id}" oninput="updateInsPremPrev(${id})"></div>
+    <div class="fld"><label>払込完了年齢（歳）</label><input type="number" value="${pe}" id="ipayend-${id}"></div>
+  </div>
+  <div class="g2" style="margin-bottom:8px">
+    <div class="fld"><label>免責期間（月）</label><input type="number" value="${wm}" min="0" max="24" id="iwait-${id}"></div>
+  </div>
+  <div class="note" id="ipremprev-${id}" style="margin-bottom:8px"></div>
+  <div class="g2" style="margin-bottom:8px">
+    <div class="fld"><label>保険開始年齢</label><input type="number" value="${sa}" id="istart-${id}"></div>
+    <div class="fld"><label>満了年齢</label><input type="number" value="${ea}" id="iend-${id}"></div>
+  </div>
+  <div class="note" id="ipreview-${id}"></div>`;
+  document.getElementById('insList').appendChild(d);
+  function upPrev(){
+    const mB=+(document.getElementById('ideath-'+id)?.value||0);
+    const sA=+(document.getElementById('istart-'+id)?.value||40);
+    const eA=+(document.getElementById('iend-'+id)?.value||60);
+    const wait=+(document.getElementById('iwait-'+id)?.value||0);
+    const selfA=getSelfAge()||40;
+    const remY=Math.max(0,eA-selfA);
+    const cur=mB*(12*remY-Math.min(wait,12*remY));
+    const max=mB*(12*(eA-sA)-wait);
+    document.getElementById('ipreview-'+id).textContent=
+      '期間: '+sA+'歳〜'+eA+'歳（'+(eA-sA)+'年）　今死亡時給付総額: 約'+fmt(Math.round(cur))+'円（残り'+remY+'年分）　最大: 約'+fmt(Math.round(max))+'円';
+  }
+  ['ideath-'+id,'istart-'+id,'iend-'+id,'iwait-'+id].forEach(eid=>document.getElementById(eid)?.addEventListener('input',upPrev));
+  upPrev();
+  updateInsPremPrev(id);
+}
+// 投資タイプ別デフォルト値
+const INV_PRESETS={
+  nisa:      {label:'NISA（つみたて）',    mo:50000, rt:5.0, stop:65, note:'非課税・年360万円上限（成長投資枠含む）', color:'var(--green)', bg:'var(--green-bg)'},
+  ideco:     {label:'iDeCo（確定拠出）',  mo:23000, rt:4.0, stop:60, note:'60歳まで引き出し不可・所得控除あり',   color:'var(--blue)',  bg:'var(--blue-bg)'},
+  dc:        {label:'企業型DC（選択制）',  mo:20000, rt:3.0, stop:60, note:'選択制を想定：掛金分は標準報酬月額・課税所得から控除され社会保険料・税が軽減されます', color:'#6c5ce7', bg:'#efedfb'},
+  brokerage: {label:'証券口座',           mo:30000, rt:4.0, stop:65, note:'SBI・楽天・マネックスなどの特定口座・一般口座。利益には原則20.315%の税がかかります', color:'#0e7b8a', bg:'#e6f4f6'},
+  crypto:    {label:'暗号通貨',           mo:10000, rt:8.0, stop:65, note:'ビットコイン・イーサリアムなど。価格変動が大きく高リスク。利益は雑所得扱い（最大55%課税）', color:'#c0852b', bg:'#fdf6e3'},
+  other:     {label:'その他投資',         mo:30000, rt:3.0, stop:65, note:'個別株・投信・債券など',               color:'var(--amber)', bg:'var(--amber-bg)'},
+};
+function addInv(typeOrName='other', mo, rt, bal=0, stop){
+  const id=++invCount;
+  const preset=INV_PRESETS[typeOrName]||INV_PRESETS.other;
+  // legacy: if called with string name (not preset key), treat as 'other' with custom name
+  const isPreset=typeOrName in INV_PRESETS;
+  const nm=isPreset?preset.label:typeOrName;
+  mo=mo??preset.mo; rt=rt??preset.rt; stop=stop??preset.stop;
+  const vtype=isPreset?typeOrName:'other';
+  const p=INV_PRESETS[vtype]||INV_PRESETS.other;
+  const d=document.createElement('div');
+  d.id='inv-'+id;
+  d.style.cssText=`border:1px solid ${p.color};border-radius:var(--radius);padding:12px;margin-bottom:10px;background:${p.bg}`;
+  d.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:${p.color};color:#fff">${p.label.split('（')[0]}</span>
+        <select id="vtype-${id}" onchange="changeInvType(${id})" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);font-family:inherit">
+          <option value="nisa" ${vtype==='nisa'?'selected':''}>NISA</option>
+          <option value="ideco" ${vtype==='ideco'?'selected':''}>iDeCo</option>
+          <option value="dc" ${vtype==='dc'?'selected':''}>企業型DC</option>
+          <option value="brokerage" ${vtype==='brokerage'?'selected':''}>証券口座</option>
+          <option value="crypto" ${vtype==='crypto'?'selected':''}>暗号通貨</option>
+          <option value="other" ${vtype==='other'?'selected':''}>その他</option>
+        </select>
+      </div>
+      <button class="del-btn" onclick="delRow('inv',${id})">✕</button>
+    </div>
+    <div class="g2" style="margin-bottom:8px">
+      <div class="fld"><label>名称</label><input type="text" value="${nm}" id="vname-${id}" placeholder="例：楽天NISA"></div>
+      <div class="fld"><label>現在残高（円）</label><input type="number" value="${bal}" step="100000" id="vbal-${id}"></div>
+    </div>
+    <div class="g3">
+      <div class="fld"><label>月額積立（円）</label><input type="number" value="${mo}" step="5000" id="vmon-${id}" oninput="recalcSocial()"></div>
+      <div class="fld"><label>想定利回り（%）</label><input type="number" value="${rt}" step="0.5" id="vrt-${id}"></div>
+      <div class="fld"><label>積立終了年齢</label><input type="number" value="${stop}" id="vstop-${id}"></div>
+    </div>
+    <div class="fld" id="vwhoFld-${id}" style="display:${vtype==='dc'?'block':'none'};margin-top:8px">
+      <label>加入者（社会保険料に反映）</label>
+      <select id="vwho-${id}" onchange="recalcSocial()" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);font-family:inherit">
+        <option value="self">本人</option>
+        <option value="sp">配偶者</option>
+      </select>
+    </div>
+    <p class="note" id="vnote-${id}" style="margin-top:6px">${p.note}</p>`;
+  document.getElementById('invList').appendChild(d);
+}
+function changeInvType(id){
+  const vtype=document.getElementById('vtype-'+id)?.value||'other';
+  const p=INV_PRESETS[vtype];
+  if(!p)return;
+  // スタイル更新
+  const d=document.getElementById('inv-'+id);
+  if(d){d.style.borderColor=p.color;d.style.background=p.bg;}
+  // デフォルト値更新（名称・利回り・終了年齢）
+  const nameEl=document.getElementById('vname-'+id);
+  if(nameEl)nameEl.value=p.label;
+  const rtEl=document.getElementById('vrt-'+id);
+  if(rtEl)rtEl.value=p.rt;
+  const stopEl=document.getElementById('vstop-'+id);
+  if(stopEl)stopEl.value=p.stop;
+  const noteEl=document.getElementById('vnote-'+id);
+  if(noteEl)noteEl.textContent=p.note;
+  // 企業型DCのときのみ「加入者」欄を表示し、社会保険料を再計算
+  const whoFld=document.getElementById('vwhoFld-'+id);
+  if(whoFld)whoFld.style.display=vtype==='dc'?'block':'none';
+  recalcSocial();
+}
+// 投資ブロックから指定者の企業型DC（選択制）月額拠出を合計
+function getDcMonthly(who){
+  let sum=0;
+  document.querySelectorAll('#invList [id^="inv-"]').forEach(el=>{
+    const id=el.id.split('-')[1];
+    if((document.getElementById('vtype-'+id)?.value)==='dc'){
+      const w=document.getElementById('vwho-'+id)?.value||'self';
+      if(w===who)sum+=+(document.getElementById('vmon-'+id)?.value||0);
+    }
+  });
+  return sum;
+}
+function recalcSocial(){calcSocialInsurance('self');calcSocialInsurance('sp');}
+function delRow(type,id){const el=document.getElementById(type+'-'+id);if(el)el.remove();}
+function updateInsTag(id){
+  const cat=document.getElementById('icat-'+id)?.value||'death';
+  const ci=INS_CATS[cat]||INS_CATS.death;
+  const tag=document.getElementById('icat-tag-'+id);
+  if(tag){tag.className='tag '+ci.tag;tag.textContent=ci.label;}
+}
+
+function getIns(){
+  const rows=[];
+  document.querySelectorAll('#insList .ins-block').forEach(el=>{
+    const id=el.id.split('-')[1];
+    const type=el.dataset.instype;
+    const name=document.getElementById('iname-'+id)?.value||'保険'+id;
+    const freq=document.getElementById('ifreq-'+id)?.value||'year';
+    const premiumEach=+(document.getElementById('iprem-'+id)?.value||0);
+    const premium=premiumEach*insFreqMult(freq);// 年払換算
+    const endAge=+(document.getElementById('iend-'+id)?.value||99);
+    const payEndAge=+(document.getElementById('ipayend-'+id)?.value||endAge);
+    const who=document.getElementById('iwho-'+id)?.value||'self';// 'self' or 'sp'
+    const cat=document.getElementById('icat-'+id)?.value||'death';// 保険種別
+    if(type==='lump'){rows.push({instype:'lump',name,cat,who,deathBenefit:+(document.getElementById('ideath-'+id)?.value||0),premium,payEndAge,surrenderAge:+(document.getElementById('isurrage-'+id)?.value||0),surrenderVal:+(document.getElementById('isurrval-'+id)?.value||0),endAge});}
+    else if(type==='usd'){
+      const deathUSD=+(document.getElementById('iusd-death-'+id)?.value||0);
+      const svUSD=+(document.getElementById('iusd-sv-'+id)?.value||0);
+      const premUSD=+(document.getElementById('iprem-'+id)?.value||0);
+      const rate=usdJpyRate;
+      rows.push({instype:'lump',isUSD:true,fxRate:rate,deathUSD,premUSDEach:premUSD,svUSD,
+        name,cat:document.getElementById('icat-'+id)?.value||'death',who,
+        deathBenefit:Math.round(deathUSD*rate),
+        premium:Math.round(premUSD*insFreqMult(freq)*rate),
+        payEndAge:+(document.getElementById('ipayend-'+id)?.value||endAge),
+        surrenderAge:+(document.getElementById('isurrage-'+id)?.value||0),
+        surrenderVal:Math.round(svUSD*rate),endAge});
+    }
+    else{rows.push({instype:'income',name,cat:'income',who,monthlyBenefit:+(document.getElementById('ideath-'+id)?.value||0),premium,payEndAge,startAge:+(document.getElementById('istart-'+id)?.value||40),endAge,waitMonths:+(document.getElementById('iwait-'+id)?.value||0)});}
+  });return rows;
+}
+function getInv(){
+  const rows=[];
+  document.querySelectorAll('#invList [id^="inv-"]').forEach(el=>{
+    const id=el.id.split('-')[1];
+    rows.push({
+      name:document.getElementById('vname-'+id)?.value||'投資'+id,
+      type:document.getElementById('vtype-'+id)?.value||'other',
+      monthly:+(document.getElementById('vmon-'+id)?.value||0),
+      rate:+(document.getElementById('vrt-'+id)?.value||0)/100,
+      balance:+(document.getElementById('vbal-'+id)?.value||0),
+      stopAge:+(document.getElementById('vstop-'+id)?.value||65)
+    });
+  });return rows;
+}
+function getHousingCost(selfCurAge,spCurAge){
+  const t=document.getElementById('housingType').value;
+  const rent=+document.getElementById('monthlyRent').value*12;
+  if(t!=='owned')return rent;
+  // 本人ローン
+  const selfBorrowY=+document.getElementById('selfLoanYear').value||2020;
+  const selfYrs=+document.getElementById('selfLoanYears').value||35;
+  const selfEndAge=selfCurAge+(selfYrs-Math.max(0,getPlanYM().y-selfBorrowY))-(selfCurAge-(getSelfAge()||40));
+  // 経過年で残返済年数を計算
+  const selfElapsed=selfCurAge-(getSelfAge()||40);
+  const selfRemYrs=Math.max(0,selfYrs-Math.max(0,getPlanYM().y-selfBorrowY)-selfElapsed);
+  const selfMo=+document.getElementById('loanMonthly').value||0;
+  const selfLoanCost=selfRemYrs>0?selfMo*12:0;
+  // 配偶者ローン
+  let spLoanCost=0;
+  if(document.getElementById('spLoanEnabled')?.checked){
+    const spBorrowY=+document.getElementById('spLoanYear').value||2020;
+    const spYrs=+document.getElementById('spLoanYears').value||35;
+    const spElapsed=(spCurAge||selfCurAge)-(getSpAge()||selfCurAge);
+    const spRemYrs=Math.max(0,spYrs-Math.max(0,getPlanYM().y-spBorrowY)-selfElapsed);
+    const spMo=+document.getElementById('spLoanMonthly').value||0;
+    spLoanCost=spRemYrs>0?spMo*12:0;
+  }
+  const propertyTax=(t==='owned'||t==='paid')?(+document.getElementById('fixedTax').value||0)+(+document.getElementById('cityTax').value||0):0;
+  return rent+selfLoanCost+spLoanCost+propertyTax;
+}
+
+function runSim(){
+  const selfAge=getSelfAge();
+  const endAge=+document.getElementById('endAge').value;
+  const simYears=Math.max(1,endAge-selfAge);
+  const inflation=+document.getElementById('inflationRate').value/100;
+  const spAge=getSpAge();
+  const selfIncome=+document.getElementById('selfIncome').value;
+  const spIncome=+document.getElementById('spIncome').value;
+  const selfGrowth=+document.getElementById('selfIncomeGrowth').value/100;
+  const spGrowth=+document.getElementById('spIncomeGrowth').value/100;
+  const selfSide=+document.getElementById('selfSideIncome').value;
+  const spSide=+document.getElementById('spSideIncome').value;
+  const selfRetireAge=+document.getElementById('selfRetireAge').value;
+  const spRetireAge=+document.getElementById('spRetireAge').value;
+  const selfSeverance=+document.getElementById('selfSeverance').value;
+  const spSeverance=+document.getElementById('spSeverance').value;
+  // 生活費：月額フィールドの合計 × 12 = 年間生活費
+  const baseLiving=getMonthlyLiving()*12;
+  const retireLivingBase=+document.getElementById('retireLiving').value*12;
+  const secondLifeAge=+document.getElementById('secondLifeAge')?.value||65;
+  const retireExtraAnnual=(+document.getElementById('retireExtra')?.value||0)*12;
+  const retireOtherAnnual=(+document.getElementById('retireOtherIncome')?.value||0)*12;
+  const loanEndAge=+document.getElementById('loanEndAge').value||65;
+  const selfPensionStart=+document.getElementById('selfPensionStart').value;
+  const spPensionStart=+document.getElementById('spPensionStart').value;
+  const selfPensionM=+document.getElementById('selfPensionAmt').value;
+  const spPensionM=+document.getElementById('spPensionAmt').value;
+  let savings=+document.getElementById('savings').value;
+  const savingsRate=+document.getElementById('savingsRate').value/100;
+  const children=+document.getElementById('children').value;
+  const childCurrentAges=[];
+  for(let i=0;i<children;i++){
+    const by=+document.getElementById('childBY-'+i)?.value||(2017+i*3);
+    const bm=+document.getElementById('childBM-'+i)?.value||1;
+    childCurrentAges.push(calcAge(by,bm));
+  }
+  const insRows=getIns();
+  const invRows=getInv();
+  let invBalances=invRows.map(r=>r.balance);
+  const otherIncomeAnnual=+document.getElementById('otherIncome')?.value||0;
+  const lifeEvents=getLifeEvents();
+  const loanExtras=getLoanExtras();
+  // 小学校入学年度を日本の学制（4月2日以降生まれは翌年度入学）で計算
+  // 月が5以上（5〜12月）は生年+7年、1〜4月は生年+6年
+  const planStartYear=getPlanYM().y;
+  const childElemEntryYears=[];
+  for(let i=0;i<children;i++){
+    const by=+document.getElementById('childBY-'+i)?.value||(2017+i*3);
+    const bm=+document.getElementById('childBM-'+i)?.value||1;
+    const bd=+document.getElementById('childBD-'+i)?.value||1;
+    // 4月1日以前生まれ → 生年+6年入学、4月2日以降生まれ → 生年+7年入学
+    const isBeforeApr2=(bm<4)||(bm===4&&bd<=1);
+    childElemEntryYears.push(isBeforeApr2?by+6:by+7);
+  }
+  simData=[];let negYear=null,cumInfl=1;
+
+  for(let y=0;y<simYears;y++){
+    const selfCurAge=selfAge+y,spCurAge=spAge+y;
+    if(y>0)cumInfl*=(1+inflation);
+    const selfRetired=selfCurAge>=selfRetireAge,spRetired=spCurAge>=spRetireAge;
+    let selfYrInc=selfRetired?0:(selfIncome*Math.pow(1+selfGrowth,y)+selfSide);
+    let spYrInc=spRetired?0:(spIncome*Math.pow(1+spGrowth,y)+spSide);
+    if(selfCurAge===selfRetireAge)selfYrInc+=selfSeverance;
+    if(spCurAge===spRetireAge)spYrInc+=spSeverance;
+    if(selfCurAge>=selfPensionStart)selfYrInc+=selfPensionM*12;
+    if(spCurAge>=spPensionStart)spYrInc+=spPensionM*12;
+    // 児童手当（年齢別・子供ごと）
+    let childAllowanceY=0;
+    childCurrentAges.forEach((ca,ci)=>{
+      const childAge=ca+y;
+      const rank=ci+1;
+      if(childAge<=2)childAllowanceY+=15000*12;
+      else if(childAge<=15)childAllowanceY+=(rank>=3?30000:10000)*12;
+      else if(childAge<=18)childAllowanceY+=10000*12;
+    });
+    // その他収入
+    const inSecondLife=selfCurAge>=secondLifeAge;
+    const retireOtherY=inSecondLife?retireOtherAnnual:0;
+    const totalOther=otherIncomeAnnual+childAllowanceY+retireOtherY;
+    const yearIncome=selfYrInc+spYrInc+totalOther;
+    const bothRetired=selfRetired&&spRetired;
+    const livingInflated=(bothRetired?retireLivingBase:baseLiving)*cumInfl+(inSecondLife?retireExtraAnnual*cumInfl:0);
+    const housingCost=getHousingCost(selfCurAge,spCurAge);
+    let eduCost=0;
+    childCurrentAges.forEach((ca,ci)=>{
+      const childAge=ca+y;
+      const simYearNow=planStartYear+y;
+      const ey=childElemEntryYears[ci]; // 小学校入学年度
+      const sy=simYearNow-ey; // 小学校からの経過年数（0=入学年、負=未就学）
+      const uy=getUnivYearsForChild(ci);
+      const extra=sy>=0&&sy<12?getEduExtraForChild(ci)*cumInfl:0;
+      if(sy>=-3&&sy<0)eduCost+=getEduCostForChild(ci,'kinder')*cumInfl;         // 幼稚園（入学3〜1年前）
+      else if(sy>=0&&sy<6)eduCost+=getEduCostForChild(ci,'elem')*cumInfl+extra; // 小学校
+      else if(sy>=6&&sy<9)eduCost+=getEduCostForChild(ci,'mid')*cumInfl+extra;  // 中学校
+      else if(sy>=9&&sy<12)eduCost+=getEduCostForChild(ci,'high')*cumInfl+extra;// 高校
+      else if(sy>=12&&sy<12+uy){                                                  // 大学
+        eduCost+=getEduCostForChild(ci,'univ')*cumInfl;
+        const rf=document.getElementById('remitance_flag_'+ci)?.value==='1';
+        if(rf){
+          eduCost+=(+document.getElementById('remitance_amt_'+ci)?.value||0)*cumInfl;
+          if(sy===12)eduCost+=(+document.getElementById('remitance_init_'+ci)?.value||0)*cumInfl;
+        }
+      }
+      // 結婚費用の援助（子の年齢で一時計上）
+      const mAge=+document.getElementById('marriage_age_'+ci)?.value||0;
+      const mAmt=+document.getElementById('marriage_amt_'+ci)?.value||0;
+      if(mAge>0&&mAmt>0&&childAge===mAge)eduCost+=mAmt*cumInfl;
+    });
+    let yearIns=0,surrenderIncome=0;
+    insRows.forEach(ins=>{
+      if(ins.instype==='lump'){
+        // 払込完了年齢まで保険料発生、カバーは終了年齢まで継続
+        if(selfCurAge<ins.payEndAge&&(ins.surrenderAge===0||selfCurAge<ins.surrenderAge))yearIns+=ins.premium;
+        if(ins.surrenderAge>0&&selfCurAge===ins.surrenderAge&&ins.surrenderVal>0)surrenderIncome+=ins.surrenderVal;
+      }else{
+        if(selfCurAge>=ins.startAge&&selfCurAge<ins.endAge&&selfCurAge<ins.payEndAge)yearIns+=ins.premium;
+      }
+    });
+    let yearInvContrib=0,totalInvBalance=0;
+    invRows.forEach((inv,i)=>{
+      const contrib=selfCurAge<inv.stopAge?inv.monthly*12:0;
+      yearInvContrib+=contrib;
+      invBalances[i]=invBalances[i]*(1+inv.rate)+contrib;
+      totalInvBalance+=invBalances[i];
+    });
+    // ライフイベント（指定年齢に一時出費）
+    const lifeEventCost=lifeEvents.filter(e=>e.age===selfCurAge).reduce((s,e)=>s+e.cost,0);
+    // 追加借入返済（完済年月まで・定額返済として計上）
+    const simYear=getPlanYM().y+y;
+    const loanExtraAnnual=loanExtras.reduce((s,l)=>{
+      if(!l.monthly)return s;
+      const ey=l.endY||0;
+      if(!ey)return s+l.monthly*12;
+      if(simYear<ey)return s+l.monthly*12;
+      if(simYear===ey)return s+l.monthly*(l.endM||12);
+      return s;
+    },0);
+    const yearExp=livingInflated+housingCost+eduCost+lifeEventCost+loanExtraAnnual;
+    const balance=yearIncome+surrenderIncome-yearExp-yearIns-yearInvContrib;
+    savings=savings*(1+savingsRate)+balance;
+    const totalAssets=savings+totalInvBalance;
+    const realAssets=totalAssets/cumInfl;
+    if(totalAssets<0&&negYear===null)negYear=selfCurAge;
+    const pensionY=(selfCurAge>=selfPensionStart?selfPensionM*12:0)+(spCurAge>=spPensionStart?spPensionM*12:0);
+    const childInfo=childCurrentAges.map((ca,ci)=>{const age=ca+y;const uy=getUnivYearsForChild(ci);const syi=(planStartYear+y)-childElemEntryYears[ci];return {age,inUniv:syi>=12&&syi<12+uy};});
+    simData.push({year:getPlanYM().y+y,selfAge:selfCurAge,spAge:spCurAge,childInfo,income:yearIncome,surrenderIncome,expense:yearExp-housingCost,living:livingInflated,eduCost,housingCost,otherExp:lifeEventCost+loanExtraAnnual,ins:yearIns,invContrib:yearInvContrib,balance,savings,invBalance:totalInvBalance,totalAssets,realAssets,selfRetired,spRetired,cumInfl,invSnap:[...invBalances],pensionY,retireOtherY,inSecondLife,needsLiving:livingInflated+housingCost});
+  }
+
+  document.getElementById('placeholder').style.display='none';
+  document.getElementById('results').style.display='block';
+  document.getElementById('resultSubtitle').textContent='本人 '+selfAge+'歳〜'+endAge+'歳（'+simYears+'年間）';
+  renderMetrics(negYear,endAge);
+  renderChart();
+  renderTable();
+  renderEvents(selfAge,spAge,children,childCurrentAges,childElemEntryYears,planStartYear,selfRetireAge,spRetireAge,selfPensionStart,spPensionStart,loanEndAge,insRows,invRows);
+  renderInvSummary(invRows);
+  renderInsSummary(insRows,selfAge);
+  renderReq(selfAge,spAge,insRows);
+  renderSecondLife(secondLifeAge,+document.getElementById('secondLifeEndAge')?.value||90,endAge);
+  const wb=document.getElementById('warnBox');
+  if(negYear){wb.style.display='block';wb.innerHTML='⚠　<strong>'+negYear+'歳頃</strong>に総資産がマイナスになる見込みです。収支の見直しをご検討ください。';}
+  else wb.style.display='none';
+  // PDF出力ボタンを有効化
+  const pdfBtn=document.getElementById('pdfBtn');
+  if(pdfBtn){pdfBtn.disabled=false;pdfBtn.title='PDFとして保存';}
+}
+
+// 万円単位フォーマット
+const fmtM=n=>{const m=Math.round(n/10000);return fmt(m)+'万円';};
+const fmtMsgn=n=>{const m=Math.round(n/10000);return (m>=0?'+':'')+fmt(m)+'万円';};
+
+function renderMetrics(negYear,endAge){
+  const last=simData[simData.length-1];
+  const ri=simData.findIndex(d=>d.selfRetired);
+  const retireRow=ri>=0?simData[ri]:simData[0];
+  const totalIns=simData.reduce((s,d)=>s+d.ins,0);
+  const totalSurr=simData.reduce((s,d)=>s+d.surrenderIncome,0);
+  const cards=[
+    {label:'退職時・総資産',val:fmtM(retireRow.totalAssets),cls:retireRow.totalAssets>0?'g':'r'},
+    {label:endAge+'歳・総資産（名目）',val:fmtM(last.totalAssets),cls:last.totalAssets>0?'g':'r'},
+    {label:endAge+'歳・総資産（実質）',val:fmtM(last.realAssets),cls:last.realAssets>0?'g':'r'},
+    {label:'最終・投資残高',val:fmtM(last.invBalance),cls:last.invBalance>0?'g':''},
+    {label:'累計保険料',val:fmtM(totalIns),cls:''},
+    {label:'解約返戻金合計',val:fmtM(totalSurr),cls:totalSurr>0?'g':''},
+    {label:'資産枯渇',val:negYear?negYear+'歳':'なし',cls:negYear?'r':'g'},
+  ];
+  document.getElementById('metricCards').innerHTML=cards.map(c=>`<div class="metric"><div class="mlabel">${c.label}</div><div class="mval ${c.cls}">${c.val}</div></div>`).join('');
+}
+
+// 支出項目の色・ラベル定義
+const EXP_CATS=[
+  {key:'living',  label:'生活費',  color:'#c0392b'},
+  {key:'housing', label:'住居費',  color:'#e67e22'},
+  {key:'eduCost', label:'教育費',  color:'#8e44ad'},
+  {key:'ins',     label:'保険料',  color:'#16a085'},
+  {key:'invContrib',label:'投資積立',color:'#2980b9'},
+  {key:'otherExp',label:'その他支出',color:'#7f8c8d'},
+];
+function renderChart(){
+  const toM=v=>Math.round(v/10000);
+  const labels=simData.map(d=>d.selfAge+'歳');
+  const totalAssets=simData.map(d=>toM(d.totalAssets));
+  const realAssets=simData.map(d=>toM(d.realAssets));
+  const income=simData.map(d=>toM(d.income+d.surrenderIncome));
+  if(chartInst)chartInst.destroy();
+  // 凡例HTML
+  let legendHTML=`
+    <div class="legend-item"><div class="legend-line" style="background:#1a8a5a"></div>総資産</div>
+    <div class="legend-item"><div class="legend-line" style="border-top:2px dashed #5ab88a;background:none"></div>実質総資産</div>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(26,95,168,0.6)"></div>収入</div>`;
+  EXP_CATS.forEach(c=>{legendHTML+=`<div class="legend-item"><div class="legend-dot" style="background:${c.color}"></div>${c.label}</div>`;});
+  document.getElementById('legendBox').innerHTML=legendHTML;
+  const axCb=v=>{const a=Math.abs(v);if(a>=10000){const o=(a/10000).toFixed(1).replace(/\.0$/,'');return (v<0?'-':'')+o+'億';}return fmt(v)+'万';};
+  const ctx=document.getElementById('mainChart').getContext('2d');
+  // 支出項目を積み上げbarで生成
+  const expDatasets=EXP_CATS.map(c=>({
+    type:'bar',label:c.label,
+    data:simData.map(d=>toM(d[c.key]||0)),
+    backgroundColor:c.color,yAxisID:'y',stack:'exp'
+  }));
+  chartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[
+    {type:'line',label:'総資産',data:totalAssets,borderColor:'#1a8a5a',backgroundColor:'rgba(26,138,90,0.05)',borderWidth:2,pointRadius:0,yAxisID:'y1',tension:0.3},
+    {type:'line',label:'実質総資産',data:realAssets,borderColor:'#5ab88a',borderDash:[5,4],backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,yAxisID:'y1',tension:0.3},
+    {type:'bar',label:'収入',data:income,backgroundColor:'rgba(26,95,168,0.5)',yAxisID:'y',stack:'inc'},
+    ...expDatasets,
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    scales:{
+      x:{stacked:true,title:{display:true,text:'本人の年齢',font:{size:13,weight:'bold'}},grid:{display:false},ticks:{autoSkip:true,maxTicksLimit:15,font:{size:13}}},
+      y:{position:'left',stacked:true,beginAtZero:true,title:{display:true,text:'収入・支出（万円）',font:{size:13,weight:'bold'}},grid:{color:'rgba(0,0,0,0.06)',drawTicks:false},border:{display:false},ticks:{font:{size:13},callback:axCb}},
+      y1:{position:'right',title:{display:true,text:'総資産（万円）',font:{size:13,weight:'bold'}},grid:{drawOnChartArea:false},ticks:{font:{size:13},callback:axCb}}
+    },
+    plugins:{legend:{display:false},tooltip:{titleFont:{size:14},bodyFont:{size:13},callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)+'万円'}}}}});
+}
+
+function renderTable(){
+  const rows=simData;// 1年単位で全年表示
+  const m=v=>fmt(Math.round(v/10000));
+  // 家族の人数・名前
+  const nChild=rows[0]?.childInfo?.length||0;
+  const hasSpouse=true;// 配偶者の年齢も常に表示
+  const childNames=[];
+  for(let i=0;i<nChild;i++){childNames.push((document.getElementById('childName-'+i)?.value||('第'+['一','二','三','四','五'][i]+'子')));}
+  const UNIV_BG='#fde68a';// 大学在学マーカー色
+  // ヘッダー生成
+  let head='<tr><th>年</th><th>本人</th>';
+  if(hasSpouse)head+='<th>配偶者</th>';
+  childNames.forEach(nm=>head+=`<th>${nm}</th>`);
+  head+='<th>収入</th><th>一時所得</th><th>生活費</th><th>住居費</th><th>保険料</th><th>投資積立</th><th>収支</th><th>預貯金</th><th>投資残高</th><th>総資産</th><th>実質総資産</th></tr>';
+  document.getElementById('cfHead').innerHTML=head;
+  // 大学在学が存在すれば凡例を表示
+  const anyUniv=rows.some(d=>(d.childInfo||[]).some(c=>c.inUniv));
+  const lg=document.getElementById('cfUnivLegend');if(lg)lg.style.display=anyUniv?'block':'none';
+  // 家族年齢セル
+  const famCells=d=>{
+    let h='';
+    if(hasSpouse)h+=`<td>${d.spAge}${d.spRetired?'★':''}</td>`;
+    (d.childInfo||[]).forEach(c=>{
+      const mark=c.inUniv?` style="background:${UNIV_BG};font-weight:700"`:'';
+      h+=`<td${mark}>${c.age}${c.inUniv?'<span style="font-size:9px;color:#946200">🎓</span>':''}</td>`;
+    });
+    return h;
+  };
+  document.getElementById('cfBody').innerHTML=rows.map(d=>`<tr class="${d.totalAssets<0?'rd':((d.selfRetired&&d.spRetired)?'hl':'')}">
+    <td>${d.year}</td><td>${d.selfAge}${d.selfRetired?'★':''}</td>
+    ${famCells(d)}
+    <td>${m(d.income)}</td>
+    <td style="color:${d.surrenderIncome>0?'#b06a00':'var(--text3)'}">${d.surrenderIncome>0?m(d.surrenderIncome):'-'}</td>
+    <td>${m(d.expense)}</td>
+    <td>${m(d.housingCost)}</td>
+    <td>${m(d.ins)}</td>
+    <td>${m(d.invContrib)}</td>
+    <td style="color:${d.balance>=0?'#1a8a5a':'#c0392b'}">${d.balance>=0?'+':''}${m(d.balance)}</td>
+    <td>${m(d.savings)}</td>
+    <td>${m(d.invBalance)}</td>
+    <td style="font-weight:700;color:${d.totalAssets>=0?'var(--text)':'#c0392b'}">${m(d.totalAssets)}</td>
+    <td style="color:var(--text3)">${m(d.realAssets)}</td></tr>`).join('');
+}
+
+// ── セカンドライフ準備 分析 ───────────────────────────────────
+function renderSecondLife(startAge,endLifeAge,simEndAge){
+  const box=document.getElementById('secondLifeBox');
+  if(!box)return;
+  const rows=simData.filter(d=>d.selfAge>=startAge&&d.selfAge<=endLifeAge);
+  if(!rows.length){box.innerHTML='<p style="color:var(--text3);font-size:13px">セカンドライフ開始年齢がシミュレーション期間外です。「基本設定」の終了年齢と「セカンドライフ開始年齢」をご確認ください。</p>';return;}
+  const needsTotal=rows.reduce((s,d)=>s+d.needsLiving,0);          // 必要生活費累計（住居費含む）
+  const pensionTotal=rows.reduce((s,d)=>s+(d.pensionY||0),0);      // 公的年金累計
+  const otherTotal=rows.reduce((s,d)=>s+(d.retireOtherY||0),0);   // その他収入累計
+  const shortfall=Math.max(0,needsTotal-pensionTotal-otherTotal); // 自助努力で準備すべき額
+  const coveredByIncome=needsTotal-shortfall;
+  const period=endLifeAge-startAge+1;
+  // リタイア時点（セカンドライフ開始年齢）の準備資産
+  const startRow=rows[0];
+  const assetAtStart=startRow?startRow.totalAssets:0;
+  const ok=assetAtStart>=shortfall;
+  const gap=assetAtStart-shortfall;
+  const incompleteNote=simEndAge<endLifeAge
+    ?`<p class="note" style="color:#b06a00;margin-top:8px">※ シミュレーション終了年齢（${simEndAge}歳）が想定寿命（${endLifeAge}歳）より手前のため、累計は${simEndAge}歳までの集計です。「基本設定」の終了年齢を想定寿命に合わせるとより正確になります。</p>`
+    :'';
+  const card=(label,val,color,sub)=>`<div style="background:var(--surface2);border-radius:var(--radius);padding:14px 16px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">${label}</div>
+      <div style="font-size:20px;font-weight:800;color:${color||'var(--text)'}">${val}</div>
+      ${sub?`<div style="font-size:11px;color:var(--text3);margin-top:4px">${sub}</div>`:''}
+    </div>`;
+  box.innerHTML=`
+    <div style="background:linear-gradient(135deg,#fff7e6,#eafaf1);border:1px solid #e0d6bf;border-radius:12px;padding:18px 20px;margin-bottom:16px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">セカンドライフ（${startAge}歳〜${endLifeAge}歳・約${period}年間）で自助努力により準備すべき金額</div>
+      <div style="font-size:34px;font-weight:800;color:#b06a00">${fmtM(shortfall)}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px">必要生活費累計 ${fmtM(needsTotal)} − 公的年金 ${fmtM(pensionTotal)} − その他収入 ${fmtM(otherTotal)}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">
+      ${card('必要保障期間',period+'年',null,startAge+'歳〜'+endLifeAge+'歳')}
+      ${card('必要生活費累計','<span style="font-size:16px">'+fmtM(needsTotal)+'</span>','#c0392b','老後生活費＋住居費')}
+      ${card('公的年金（累計）','<span style="font-size:16px">'+fmtM(pensionTotal)+'</span>','#1a5fa8','受給期間の合計')}
+      ${card('その他収入（累計）','<span style="font-size:16px">'+fmtM(otherTotal)+'</span>','#1a8a5a','個人年金・家賃等')}
+      ${card('準備すべき金額（不足額）','<span style="font-size:16px">'+fmtM(shortfall)+'</span>','#b06a00','自助努力で用意する額')}
+      ${card(startAge+'歳時点の準備資産','<span style="font-size:16px">'+fmtM(assetAtStart)+'</span>',assetAtStart>=0?'#1a8a5a':'#c0392b','予貯金＋投資残高')}
+    </div>
+    <div style="background:${ok?'#eafaf1':'#fdecea'};border:1px solid ${ok?'#a8e0c2':'#f5b7b1'};border-radius:10px;padding:14px 16px">
+      <div style="font-weight:700;color:${ok?'#1a8a5a':'#c0392b'};font-size:14px;margin-bottom:4px">${ok?'✅ 準備充足の見込み':'⚠ 準備不足の可能性'}</div>
+      <div style="font-size:13px;color:var(--text2)">${startAge}歳時点の準備資産 ${fmtM(assetAtStart)} − 準備すべき金額 ${fmtM(shortfall)} ＝ <b style="color:${gap>=0?'#1a8a5a':'#c0392b'}">${fmtMsgn(gap)}</b>${ok?'　余裕があります。':'　不足分は積立・就労延長・支出見直しでの準備をご検討ください。'}</div>
+    </div>
+    ${incompleteNote}`;
+}
+
+function renderEvents(selfAge,spAge,children,childCurrentAges,childElemEntryYears,planStartYear,selfRetire,spRetire,selfPensionStart,spPensionStart,loanEndAge,insRows,invRows){
+  const evs=[];
+  const lbl=['第一子','第二子','第三子','第四子','第五子'];
+  childCurrentAges.slice(0,children).forEach((ca,i)=>{
+    const ey=childElemEntryYears[i];
+    const uy=getUnivYearsForChild(i);
+    // 学年ベース：各入学年度から本人の年齢を逆算
+    [
+      [ey-3,   '幼稚園入園', '#9FE1CB'],
+      [ey,     '小学校入学', '#1a8a5a'],
+      [ey+6,   '中学入学',   '#1a8a5a'],
+      [ey+9,   '高校入学',   '#1a8a5a'],
+      [ey+12,  '大学入学',   '#1a5fa8'],
+      [ey+12+uy,'大学卒業',  '#888780'],
+    ].forEach(([yr,l,col])=>{evs.push({age:selfAge+(yr-planStartYear),label:lbl[i]+' '+l,color:col});});
+  });
+  evs.push({age:selfRetire,label:'本人 退職',color:'#1a5fa8'});
+  evs.push({age:selfAge+(spRetire-spAge),label:'配偶者 退職（配偶者'+spRetire+'歳）',color:'#993556'});
+  if(selfPensionStart!==selfRetire)evs.push({age:selfPensionStart,label:'本人 年金受取開始',color:'#534AB7'});
+  evs.push({age:selfAge+(spPensionStart-spAge),label:'配偶者 年金受取開始（配偶者'+spPensionStart+'歳）',color:'#7c3585'});
+  if(loanEndAge>selfAge)evs.push({age:loanEndAge,label:'住宅ローン完済',color:'#b06a00'});
+  insRows.forEach(ins=>{
+    if(ins.instype==='lump'){
+      if(ins.surrenderAge>0)evs.push({age:ins.surrenderAge,label:ins.name+' 解約（'+fmtM(ins.surrenderVal)+'）',color:'#b06a00'});
+      if(ins.payEndAge<ins.endAge)evs.push({age:ins.payEndAge,label:ins.name+' 払込完了',color:'#1a5fa8'});
+      if(ins.endAge<99)evs.push({age:ins.endAge,label:ins.name+' 終了',color:'#888'});
+    }else{
+      if(ins.payEndAge<ins.endAge)evs.push({age:ins.payEndAge,label:ins.name+' 払込完了',color:'#1a5fa8'});
+      evs.push({age:ins.endAge,label:ins.name+' 収入保障 満了（'+ins.endAge+'歳）',color:'#888'});
+    }
+  });
+  invRows.forEach(inv=>{if(inv.stopAge>0)evs.push({age:inv.stopAge,label:inv.name+' 積立終了',color:'#3b6d11'});});
+  const maxAge=selfAge+simData.length;
+  const filtered=evs.filter(e=>e.age>=selfAge&&e.age<=maxAge).sort((a,b)=>a.age-b.age);
+  document.getElementById('evList').innerHTML=filtered.map(e=>`<div class="ev-item"><div class="ev-dot" style="background:${e.color}"></div><span class="ev-age">${e.age}歳</span><span>${e.label}</span></div>`).join('');
+}
+
+function renderInvSummary(invRows){
+  const el=document.getElementById('invCards');
+  if(!invRows.length){el.innerHTML='<p style="color:var(--text3);font-size:13px">投資が登録されていません</p>';return;}
+  const last=simData[simData.length-1];
+  el.innerHTML=invRows.map((inv,i)=>{
+    const finalBal=last.invSnap[i]||0;
+    const totalContrib=simData.reduce((s,d)=>s+(d.selfAge<inv.stopAge?inv.monthly*12:0),0)+inv.balance;
+    const gain=finalBal-totalContrib;
+    return `<div class="card"><div class="card-title">${inv.name}</div>
+      <div class="card-row"><span class="lbl">月額積立</span><span class="val">${fmt(inv.monthly)}円</span></div>
+      <div class="card-row"><span class="lbl">想定利回り</span><span class="val">${(inv.rate*100).toFixed(1)}%</span></div>
+      <div class="card-row"><span class="lbl">現在残高</span><span class="val">${fmtM(inv.balance)}</span></div>
+      <div class="card-row"><span class="lbl">累計積立（元本）</span><span class="val">${fmtM(totalContrib)}</span></div>
+      <div class="card-row"><span class="lbl">最終運用残高見込み</span><span class="val g">${fmtM(finalBal)}</span></div>
+      <div class="card-row"><span class="lbl">運用益見込み</span><span class="val ${gain>=0?'g':'r'}">${fmtMsgn(gain)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderInsSummary(insRows,selfAge){
+  const el=document.getElementById('insCards');
+  if(!insRows.length){el.innerHTML='<p style="color:var(--text3);font-size:13px">保険が登録されていません</p>';return;}
+  el.innerHTML=insRows.map(ins=>{
+    const totalPrem=simData.reduce((s,d)=>{
+      const ca=d.selfAge;
+      if(ins.instype==='lump')return s+(ca<ins.payEndAge&&(ins.surrenderAge===0||ca<ins.surrenderAge)?ins.premium:0);
+      return s+(ca>=ins.startAge&&ca<ins.endAge&&ca<ins.payEndAge?ins.premium:0);
+    },0);
+    if(ins.instype==='lump'){
+      const net=ins.surrenderVal>0?ins.surrenderVal-totalPrem:-totalPrem;
+      const ci=INS_CATS[ins.cat]||INS_CATS.death;
+      const benefitLbl=ins.cat==='death'?'死亡保険金':'保険金額';
+      const usdBadge=ins.isUSD?`<span class="tag tag-usd" style="font-size:10px">＄ USD建</span>`:'';
+      const usdRate=ins.isUSD?`<div class="card-row"><span class="lbl">適用レート</span><span class="val">1 USD = ${ins.fxRate.toFixed(2)} 円</span></div>`:'';
+      const deathDisp=ins.isUSD
+        ?`${fmtUSD(ins.deathUSD)}<br><span style="font-size:11px;color:var(--text3)">${fmtM(ins.deathBenefit)}</span>`
+        :fmtM(ins.deathBenefit);
+      const premDisp=ins.isUSD
+        ?`${fmtUSD(ins.premUSDEach*(ins.premium/Math.round(ins.premUSDEach*ins.fxRate)||1))} / 回（年払 ${fmtUSD(ins.premUSDEach*(ins.premium/(ins.premUSDEach*ins.fxRate)||1))} = ${fmtM(ins.premium)}）`
+        :`${fmt(ins.premium)}円`;
+      const svDisp=ins.surrenderAge>0
+        ?(ins.isUSD?ins.surrenderAge+'歳 / '+fmtUSD(ins.svUSD)+' = '+fmtM(ins.surrenderVal):ins.surrenderAge+'歳 / '+fmtM(ins.surrenderVal))
+        :'-';
+      return `<div class="card"><div class="card-title">${usdBadge}<span class="tag ${ci.tag}">${ci.label}</span>${ins.name}</div>
+        ${usdRate}
+        <div class="card-row"><span class="lbl">${benefitLbl}</span><span class="val" style="font-size:14px;font-weight:700">${deathDisp}</span></div>
+        <div class="card-row"><span class="lbl">年払保険料</span><span class="val">${ins.isUSD?fmtUSD(ins.premUSDEach)+' / 回 = '+fmtM(ins.premium):fmt(ins.premium)+'円'}</span></div>
+        <div class="card-row"><span class="lbl">払込完了年齢</span><span class="val">${ins.payEndAge}歳</span></div>
+        <div class="card-row"><span class="lbl">解約年齢 / 返戻金</span><span class="val">${svDisp}</span></div>
+        <div class="card-row"><span class="lbl">保険終了</span><span class="val">${ins.endAge<99?ins.endAge+'歳':'終身'}</span></div>
+        <div class="card-row"><span class="lbl">累計保険料</span><span class="val">${fmtM(totalPrem)}</span></div>
+        <div class="card-row"><span class="lbl">解約返戻金損益</span><span class="val ${net>=0?'g':'r'}">${fmtMsgn(net)}</span></div>
+      </div>`;
+    }else{
+      const remYrs=Math.max(0,ins.endAge-selfAge);
+      const cur=ins.monthlyBenefit*(12*remYrs-Math.min(ins.waitMonths,12*remYrs));
+      const max=ins.monthlyBenefit*(12*(ins.endAge-ins.startAge)-ins.waitMonths);
+      return `<div class="card"><div class="card-title"><span class="tag tag-inc">収入保障</span>${ins.name}</div>
+        <div class="card-row"><span class="lbl">月額給付金</span><span class="val" style="font-size:14px;font-weight:700">${fmt(ins.monthlyBenefit)}円/月</span></div>
+        <div class="card-row"><span class="lbl">保険期間</span><span class="val">${ins.startAge}歳〜${ins.endAge}歳</span></div>
+        <div class="card-row"><span class="lbl">払込完了年齢</span><span class="val">${ins.payEndAge}歳</span></div>
+        <div class="card-row"><span class="lbl">免責期間</span><span class="val">${ins.waitMonths}ヶ月</span></div>
+        <div class="card-row"><span class="lbl">今死亡時給付総額</span><span class="val g" style="font-weight:700">${fmtM(cur)}（残り${remYrs}年分）</span></div>
+        <div class="card-row"><span class="lbl">最大給付総額</span><span class="val">${fmtM(max)}</span></div>
+        <div class="card-row"><span class="lbl">年払保険料</span><span class="val">${fmt(ins.premium)}円</span></div>
+        <div class="card-row"><span class="lbl">累計保険料</span><span class="val">${fmtM(totalPrem)}</span></div>
+      </div>`;
+    }
+  }).join('');
+}
+
+let reqChartInst=null,reqTimelineInst=null;
+
+function renderReq(selfAge,spAge,insRows){
+  const selfName=getSelfName(),spName=getSpName();
+  const currentAssets=simData[0]?simData[0].savings+simData[0].invBalance:+document.getElementById('savings').value;
+
+  // カバー計算（who='self'→本人の保険、'sp'→配偶者の保険で分離）
+  function calcCov(subjectAge, deceasedWho){
+    let lump=0,income=0;
+    insRows.forEach(ins=>{
+      // 被保険者フィルタ：死亡者の保険のみカウント
+      if(ins.who && ins.who!==deceasedWho)return;
+      // 死亡保険・収入保障のみ（死亡カバー）
+      if(ins.cat&&ins.cat!=='death'&&ins.cat!=='income')return;
+      if(ins.instype==='lump'){
+        if(subjectAge<ins.endAge)lump+=ins.deathBenefit;
+      }else{
+        const ry=Math.max(0,ins.endAge-subjectAge);
+        income+=ins.monthlyBenefit*(12*ry-Math.min(ins.waitMonths,12*ry));
+      }
+    });
+    return{lump,income,total:lump+income};
+  }
+  function calcCase(living,untilAge,subjectAge,widow,funeral,mortgage,extra){
+    const yrs=Math.max(0,untilAge-subjectAge);
+    const totalLiving=living*12*yrs;
+    const widowOffset=widow*12*yrs;
+    return{yrs,totalLiving,widowOffset,funeral,mortgage,extra,
+      netNeed:totalLiving-widowOffset+funeral+mortgage+extra-currentAssets};
+  }
+
+  const sUntil=+document.getElementById('reqSelfUntilAge').value;
+  const pUntil=+document.getElementById('reqSpUntilAge').value;
+  const sR=calcCase(+document.getElementById('reqSelfLiving').value,sUntil,spAge,
+    +document.getElementById('reqSelfWidowPension').value,
+    +document.getElementById('reqSelfFuneral').value,
+    +document.getElementById('reqSelfMortgage').value,
+    +document.getElementById('reqSelfExtra').value);
+  const pR=calcCase(+document.getElementById('reqSpLiving').value,pUntil,selfAge,
+    +document.getElementById('reqSpWidowPension').value,
+    +document.getElementById('reqSpFuneral').value,
+    +document.getElementById('reqSpMortgage')?.value||0,
+    +document.getElementById('reqSpExtra').value);
+
+  const sCov=calcCov(selfAge,'self');
+  const pCov=calcCov(spAge,'sp');
+  const sNeeded=Math.max(0,sR.netNeed);
+  const pNeeded=Math.max(0,pR.netNeed);
+  const sGap=sCov.total-sNeeded;
+  const pGap=pCov.total-pNeeded;
+  const sPct=sNeeded>0?Math.min(200,Math.round(sCov.total/sNeeded*100)):100;
+  const pPct=pNeeded>0?Math.min(200,Math.round(pCov.total/pNeeded*100)):100;
+
+  // ── ゲージリング ────────────────────────────────────────────────
+  function gaugeRingSVG(pct,color){
+    const r=40,circ=2*Math.PI*r;
+    const dash=Math.min(1,pct/100)*circ;
+    return `<svg viewBox="0 0 100 100">
+      <circle class="ring-bg" cx="50" cy="50" r="${r}"/>
+      <circle class="ring-fg" cx="50" cy="50" r="${r}" stroke="${color}"
+        stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="0"/>
+    </svg>`;
+  }
+  const barC=p=>p>=100?'#1a8a5a':p>=70?'#b06a00':'#c0392b';
+  const badgeH=gap=>gap>=0?'<span class="badge ok">✓ 充足</span>':gap>-1000000?'<span class="badge warn">△ 一部不足</span>':'<span class="badge ng">✕ 不足</span>';
+
+  document.getElementById('reqGaugeWrap').innerHTML=`
+    <div class="req-gauge">
+      <div class="req-gauge-title" style="color:#1a5fa8">☆ ${selfName}死亡時　${badgeH(sGap)}</div>
+      <div class="req-gauge-ring">
+        ${gaugeRingSVG(sPct,barC(sPct))}
+        <div class="req-gauge-pct">
+          <div class="num" style="color:${barC(sPct)}">${sPct}%</div>
+          <div class="lbl">カバー率</div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;margin-bottom:4px">必要保障 <b>${fmtM(sNeeded)}</b></div>
+      <div style="text-align:center;font-size:12px;color:var(--text2)">保険カバー <b>${fmtM(sCov.total)}</b></div>
+      <div class="shortage-box ${sGap<0?'bad':'good'}" style="margin-top:8px;font-size:11px">${sGap<0?'⚠ '+fmtM(Math.abs(sGap))+'不足':'✓ '+fmtM(sGap)+'余裕'}</div>
+    </div>
+    <div class="req-gauge">
+      <div class="req-gauge-title" style="color:#993556">☆ ${spName}死亡時　${badgeH(pGap)}</div>
+      <div class="req-gauge-ring">
+        ${gaugeRingSVG(pPct,barC(pPct))}
+        <div class="req-gauge-pct">
+          <div class="num" style="color:${barC(pPct)}">${pPct}%</div>
+          <div class="lbl">カバー率</div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;margin-bottom:4px">必要保障 <b>${fmtM(pNeeded)}</b></div>
+      <div style="text-align:center;font-size:12px;color:var(--text2)">保険カバー <b>${fmtM(pCov.total)}</b></div>
+      <div class="shortage-box ${pGap<0?'bad':'good'}" style="margin-top:8px;font-size:11px">${pGap<0?'⚠ '+fmtM(Math.abs(pGap))+'不足':'✓ '+fmtM(pGap)+'余裕'}</div>
+    </div>`;
+
+  // ── 内訳グラフ（Chart.js 横棒） ─────────────────────────────────
+  const M=1e6;// 万円単位に変換
+  const toM=v=>Math.round(v/10000)/100;// 百万円
+
+  // 凡例・カラー定義
+  const COLORS={
+    living:'#6baed6',   // 遺族生活費
+    funeral:'#fd8d3c',  // 葬儀
+    loan:'#e6550d',     // ローン
+    extra:'#d94801',    // その他
+    pension:'#74c476',  // 遺族年金（控除）
+    assets:'#41ab5d',   // 現在資産
+    insLump:'#2171b5',  // 保険一時金
+    insIncome:'#6baed6',// 収入保障
+    gap:'#ef3b2c',      // 不足
+    surplus:'#238b45',  // 余剰
+  };
+  const LABELS={
+    living:'遺族生活費（必要）',funeral:'葬儀費用',loan:'ローン残高',extra:'その他費用',
+    pension:'遺族年金（期間計）',assets:'現在の保有資産',insLump:'保険一時金',insIncome:'収入保障給付額',
+    gap:'不足額',surplus:'余剰（充足分）',
+  };
+
+  if(reqChartInst)reqChartInst.destroy();
+  const ctx=document.getElementById('reqChart').getContext('2d');
+
+  // グループ：本人死亡 / 配偶者死亡 × 「必要」「対応」2本ずつ
+  const labels=[
+    selfName+'死亡時（必要）',selfName+'死亡時（カバー）',
+    spName+'死亡時（必要）',spName+'死亡時（カバー）',
+  ];
+
+  // 必要側（本人死亡）
+  const sLiving=toM(sR.totalLiving),sFuneral=toM(sR.funeral),sLoan=toM(sR.mortgage),sExtra=toM(sR.extra);
+  // 必要側（配偶者死亡）
+  const pLiving=toM(pR.totalLiving),pFuneral=toM(pR.funeral),pLoan=toM(pR.mortgage),pExtra=toM(pR.extra);
+  // カバー側（本人死亡）
+  const sPension=toM(sR.widowOffset),sAssets=toM(currentAssets),sInsLump=toM(sCov.lump),sInsInc=toM(sCov.income);
+  // カバー側（配偶者死亡）
+  const pPension=toM(pR.widowOffset),pAssets=toM(currentAssets),pInsLump=toM(pCov.lump),pInsInc=toM(pCov.income);
+
+  reqChartInst=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        // 必要額の積み上げ（正値）
+        {label:LABELS.living,   backgroundColor:COLORS.living,   data:[sLiving,0,pLiving,0]},
+        {label:LABELS.funeral,  backgroundColor:COLORS.funeral,  data:[sFuneral,0,pFuneral,0]},
+        {label:LABELS.loan,     backgroundColor:COLORS.loan,     data:[sLoan,0,pLoan,0]},
+        {label:LABELS.extra,    backgroundColor:COLORS.extra,    data:[sExtra,0,pExtra,0]},
+        // カバー額の積み上げ
+        {label:LABELS.pension,  backgroundColor:COLORS.pension,  data:[0,sPension,0,pPension]},
+        {label:LABELS.assets,   backgroundColor:COLORS.assets,   data:[0,sAssets,0,pAssets]},
+        {label:LABELS.insLump,  backgroundColor:COLORS.insLump,  data:[0,sInsLump,0,pInsLump]},
+        {label:LABELS.insIncome,backgroundColor:COLORS.insIncome,data:[0,sInsInc,0,pInsInc]},
+      ]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:ctx=>`${ctx.dataset.label}: ${ctx.raw.toFixed(1)}百万円`
+          }
+        }
+      },
+      scales:{
+        x:{
+          stacked:true,
+          title:{display:true,text:'金額（百万円）',font:{size:11}},
+          ticks:{callback:v=>v+'M'}
+        },
+        y:{stacked:true,ticks:{font:{size:11}}}
+      }
+    }
+  });
+
+  // 凡例HTML
+  const allLegend=[
+    {k:'living'},{k:'funeral'},{k:'loan'},{k:'extra'},
+    {k:'pension'},{k:'assets'},{k:'insLump'},{k:'insIncome'},
+  ];
+  document.getElementById('reqChartLegend').innerHTML=allLegend.map(l=>
+    `<div class="req-legend-item"><div class="req-legend-dot" style="background:${COLORS[l.k]}"></div>${LABELS[l.k]}</div>`
+  ).join('');
+
+  // ── 保険カバー推移グラフ ───────────────────────────────────────
+  if(reqTimelineInst)reqTimelineInst.destroy();
+  const tlCtx=document.getElementById('reqTimelineChart').getContext('2d');
+  const maxAge=+document.getElementById('endAge')?.value||90;
+  const tlAges=[];for(let a=selfAge;a<=maxAge;a++)tlAges.push(a);
+
+  // 各年齢での死亡保障カバー額（本人死亡時）
+  const selfCovByAge=tlAges.map(age=>{
+    let lump=0,income=0;
+    insRows.forEach(ins=>{
+      if(ins.who&&ins.who!=='self')return;
+      if(ins.cat&&ins.cat!=='death'&&ins.cat!=='income')return;
+      if(ins.instype==='lump'){if(age<ins.endAge)lump+=ins.deathBenefit;}
+      else{const ry=Math.max(0,ins.endAge-age);income+=ins.monthlyBenefit*(12*ry-Math.min(ins.waitMonths,12*ry));}
+    });
+    return toM(lump+income);
+  });
+  // 各年齢での死亡保障カバー額（配偶者死亡時）
+  const spAgeDiff=spAge-selfAge;
+  const spCovByAge=tlAges.map(age=>{
+    const spA=age+spAgeDiff;
+    let lump=0,income=0;
+    insRows.forEach(ins=>{
+      if(ins.who&&ins.who!=='sp')return;
+      if(ins.cat&&ins.cat!=='death'&&ins.cat!=='income')return;
+      if(ins.instype==='lump'){if(spA<ins.endAge)lump+=ins.deathBenefit;}
+      else{const ry=Math.max(0,ins.endAge-spA);income+=ins.monthlyBenefit*(12*ry-Math.min(ins.waitMonths,12*ry));}
+    });
+    return toM(lump+income);
+  });
+  // 必要保障額の推移（年齢が進むと残り期間が減る）
+  const sLivingM=+document.getElementById('reqSelfLiving').value;
+  const sWidowM=+document.getElementById('reqSelfWidowPension').value;
+  const sUntilAge=sUntil;
+  const selfNeedByAge=tlAges.map(age=>{
+    const sA=age+spAgeDiff; // 本人age時点の配偶者年齢
+    const yrs=Math.max(0,sUntilAge-sA);
+    const totalL=sLivingM*12*yrs;
+    const widowOff=sWidowM*12*yrs;
+    const fixedCost=sR.funeral+sR.mortgage+sR.extra;
+    return toM(Math.max(0,totalL-widowOff+fixedCost-currentAssets));
+  });
+
+  reqTimelineInst=new Chart(tlCtx,{
+    type:'line',
+    data:{
+      labels:tlAges,
+      datasets:[
+        {label:`${selfName}死亡時：必要保障額`,data:selfNeedByAge,borderColor:'#1a5fa8',backgroundColor:'rgba(26,95,168,0.08)',fill:true,borderWidth:2,tension:0.3,borderDash:[6,3]},
+        {label:`${selfName}死亡時：保険カバー`,data:selfCovByAge,borderColor:'#1a8a5a',backgroundColor:'rgba(26,138,90,0.08)',fill:true,borderWidth:2,tension:0.3},
+        {label:`${spName}死亡時：保険カバー`,data:spCovByAge,borderColor:'#993556',backgroundColor:'rgba(153,53,86,0.08)',fill:true,borderWidth:2,tension:0.3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'top',labels:{font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.raw.toFixed(1)}百万円`}}
+      },
+      scales:{
+        x:{title:{display:true,text:selfName+'年齢（歳）',font:{size:11}},ticks:{maxTicksLimit:15}},
+        y:{title:{display:true,text:'金額（百万円）',font:{size:11}},ticks:{callback:v=>v+'M'}}
+      }
+    }
+  });
+
+  // ── 詳細カード ──────────────────────────────────────────────────
+  function card(title,r,needed,cov,gap,pct,subjAge,untilAge,subjLabel,accentColor){
+    return `<div class="req-card">
+      <div class="req-card-title" style="color:${accentColor}">${title}${badgeH(gap)}</div>
+      <div class="req-row"><span class="lbl">対象期間</span><span class="val">${r.yrs}年（${subjLabel} ${subjAge}歳〜${untilAge}歳）</span></div>
+      <div class="req-row"><span class="lbl">必要生活費総額</span><span class="val">${fmtM(r.totalLiving)}</span></div>
+      <div class="req-row"><span class="lbl">遺族年金（控除）</span><span class="val">－${fmtM(r.widowOffset)}</span></div>
+      <div class="req-row"><span class="lbl">葬儀・整理費用</span><span class="val">＋${fmtM(r.funeral)}</span></div>
+      ${r.mortgage>0?`<div class="req-row"><span class="lbl">住宅ローン（団信なし分）</span><span class="val">＋${fmtM(r.mortgage)}</span></div>`:''}
+      ${r.extra>0?`<div class="req-row"><span class="lbl">その他一時費用</span><span class="val">＋${fmtM(r.extra)}</span></div>`:''}
+      <div class="req-row"><span class="lbl">現在の総資産（控除）</span><span class="val">－${fmtM(currentAssets)}</span></div>
+      <div class="req-row" style="padding-bottom:10px"><span class="lbl" style="font-weight:700">必要保障額</span><span class="val r" style="font-size:15px;font-weight:700">${needed>0?fmtM(needed):'充足（'+fmtM(Math.abs(r.netNeed))+'余剰）'}</span></div>
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px">保険カバー状況</div>
+        <div class="req-row"><span class="lbl">一時金型 死亡保険金合計</span><span class="val">${fmtM(cov.lump)}</span></div>
+        <div class="req-row"><span class="lbl">収入保障型 給付総額見込み</span><span class="val">${fmtM(cov.income)}</span></div>
+        <div class="req-row"><span class="lbl">保険カバー合計</span><span class="val" style="font-weight:700">${fmtM(cov.total)}</span></div>
+        <div class="req-row"><span class="lbl" style="font-weight:700">過不足</span><span class="val ${gap>=0?'g':'r'}" style="font-size:15px;font-weight:700">${fmtMsgn(gap)}</span></div>
+        <div class="cov-bar"><div class="cov-fill" style="width:${Math.min(100,pct)}%;background:${barC(pct)}"></div></div>
+        <div style="font-size:11px;color:var(--text3);text-align:right">${pct}% カバー</div>
+        <div class="shortage-box ${gap<0?'bad':'good'}">${gap<0?'⚠ <strong>'+fmtM(Math.abs(gap))+'</strong>の保障が不足しています。':'✓ 現在の保険で必要保障額をカバーできています（'+fmtM(gap)+'の余裕）。'}</div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('reqPair').innerHTML=
+    card(`${selfName}死亡時`,sR,sNeeded,sCov,sGap,sPct,spAge,sUntil,spName,'#1a5fa8')+
+    card(`${spName}死亡時`,pR,pNeeded,pCov,pGap,pPct,selfAge,pUntil,selfName,'#993556');
+  document.getElementById('reqInfoBox').innerHTML=
+    '<strong>計算方法：</strong>必要保障額＝（遺族生活費合計＋一時費用）－（遺族年金＋現在の資産）。'+
+    '収入保障型は「現時点で死亡した場合に保険期間満了まで受け取れる給付総額」を合算してカバー率を算出。'+
+    '被保険者（本人・配偶者）が設定されている場合は、死亡した方の保険のみカバーに含みます。';
+}
+
+// ════════════════════════════════════════════════════════════════
+// ── データ管理（保存・読込・エクスポート・インポート） ───────────
+// ════════════════════════════════════════════════════════════════
+const DATA_KEY='lifePlanSlots_v1';
+
+// 全入力フィールドの値を収集してオブジェクトで返す
+function collectAllInputs(){
+  const data={};
+  // テキスト・数値・セレクト
+  document.querySelectorAll(
+    '.sidebar input[type="text"],.sidebar input[type="number"],.sidebar select,'+
+    '.sidebar input[type="checkbox"],.sidebar input[type="date"]'
+  ).forEach(el=>{
+    if(!el.id)return;
+    data[el.id]=el.type==='checkbox'?el.checked:el.value;
+  });
+  // 動的に生成されるブロック（保険・投資・借入・ライフイベント）を構造ごと保存
+  data['__insHTML']=document.getElementById('insList')?.innerHTML||'';
+  data['__invHTML']=document.getElementById('invList')?.innerHTML||'';
+  data['__loanExtraHTML']=document.getElementById('loanExtraList')?.innerHTML||'';
+  data['__lifeEventHTML']=document.getElementById('lifeEventList')?.innerHTML||'';
+  // カウンタも保存
+  data['__insCount']=insCount;
+  data['__invCount']=invCount;
+  data['__loanExtraId']=_loanExtraId;
+  data['__lifeEventId']=_lifeEventId;
+  return data;
+}
+
+// オブジェクトから全入力フィールドを復元
+function restoreAllInputs(data){
+  // 動的ブロックを先に復元（IDが必要なため）
+  if(data['__insHTML']!==undefined)document.getElementById('insList').innerHTML=data['__insHTML'];
+  if(data['__invHTML']!==undefined)document.getElementById('invList').innerHTML=data['__invHTML'];
+  if(data['__loanExtraHTML']!==undefined)document.getElementById('loanExtraList').innerHTML=data['__loanExtraHTML'];
+  if(data['__lifeEventHTML']!==undefined)document.getElementById('lifeEventList').innerHTML=data['__lifeEventHTML'];
+  if(data['__insCount']!==undefined)insCount=+data['__insCount'];
+  if(data['__invCount']!==undefined)invCount=+data['__invCount'];
+  if(data['__loanExtraId']!==undefined)_loanExtraId=+data['__loanExtraId'];
+  if(data['__lifeEventId']!==undefined)_lifeEventId=+data['__lifeEventId'];
+
+  // 通常フィールドを復元
+  const skip=new Set(['__insHTML','__invHTML','__loanExtraHTML','__lifeEventHTML',
+    '__insCount','__invCount','__loanExtraId','__lifeEventId']);
+  Object.entries(data).forEach(([id,val])=>{
+    if(skip.has(id))return;
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(el.type==='checkbox')el.checked=val;
+    else el.value=val;
+  });
+
+  // UI再計算を呼び出して表示を同期
+  updateChildInputs();
+  updateAgeDisp('self');updateAgeDisp('sp');
+  updateNameTitles();
+  toggleLivingMode();
+  updateLivingTotal();
+  calcPension('self');calcPension('sp');
+  toggleHousing();calcLoan();
+  toggleSpLoan();
+  calcSocialInsurance('self');calcSocialInsurance('sp');
+  calcChildAllowance();
+}
+
+// LocalStorageからスロット一覧を取得
+function loadSlots(){
+  try{return JSON.parse(localStorage.getItem(DATA_KEY)||'[]');}catch{return [];}
+}
+function saveSlots(slots){
+  try{
+    localStorage.setItem(DATA_KEY,JSON.stringify(slots));
+    return true;
+  }catch(err){
+    alert('この環境ではブラウザ内保存が使えません（iCloud経由でファイルを直接開いた場合など）。\n\nお手数ですが「JSONファイルに書き出す」で iCloud Drive にファイル保存し、別の端末では「JSONファイルを読み込む」からそのファイルを選んでご利用ください。');
+    return false;
+  }
+}
+
+// スロット一覧UIを再描画
+function renderSlotList(){
+  const slots=loadSlots();
+  const list=document.getElementById('slotList');
+  const empty=document.getElementById('slotEmpty');
+  if(!slots.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  list.innerHTML=slots.map((s,i)=>{
+    const name=escH(s.name);
+    const dt=new Date(s.savedAt).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const selfN=escH(s.data['selfName']||'本人');
+    const spN=escH(s.data['spName']||'配偶者');
+    const n=s.data['children']||0;
+    const meta=`${selfN}・${spN}　子${n}人　${dt}保存`;
+    return `<div class="slot-item">
+      <div class="slot-info">
+        <div class="slot-name">${name}</div>
+        <div class="slot-meta">${meta}</div>
+      </div>
+      <button class="slot-btn load" onclick="loadSlot(${i})">読み込む</button>
+      <button class="slot-btn save" onclick="overwriteSlot(${i})">上書き保存</button>
+      <button class="slot-btn export" onclick="exportSlot(${i})">書き出す</button>
+      <button class="slot-btn del" onclick="deleteSlot(${i})">削除</button>
+    </div>`;
+  }).join('');
+}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// スロットに保存
+function saveSlot(){
+  const nameEl=document.getElementById('saveSlotName');
+  const name=(nameEl.value.trim())||`データ ${new Date().toLocaleDateString('ja-JP')}`;
+  const slots=loadSlots();
+  // 同名があれば上書き確認
+  const existing=slots.findIndex(s=>s.name===name);
+  if(existing>=0){
+    if(!confirm(`「${name}」は既に存在します。上書きしますか？`))return;
+    slots.splice(existing,1);
+  }
+  slots.unshift({name,savedAt:Date.now(),data:collectAllInputs()});
+  // 最大20件
+  if(slots.length>20)slots.length=20;
+  saveSlots(slots);
+  nameEl.value='';
+  renderSlotList();
+  // 保存成功フィードバック
+  const btn=document.querySelector('.modal-head h3');
+  const orig=btn.textContent;
+  btn.textContent='✅ 保存しました！';
+  setTimeout(()=>{btn.textContent=orig;},1500);
+}
+
+// 既存スロットを現在の入力内容で上書き
+function overwriteSlot(i){
+  const slots=loadSlots();
+  if(!slots[i])return;
+  if(!confirm(`「${slots[i].name}」を現在表示中の入力内容で上書き保存します。よろしいですか？`))return;
+  slots[i]={name:slots[i].name,savedAt:Date.now(),data:collectAllInputs()};
+  if(saveSlots(slots)){
+    renderSlotList();
+    showToast(`「${slots[i].name}」を上書き保存しました`);
+  }
+}
+
+// スロットを読み込む
+function loadSlot(i){
+  const slots=loadSlots();
+  if(!slots[i])return;
+  if(!confirm(`「${slots[i].name}」を読み込みます。現在の入力内容は上書きされます。よろしいですか？`))return;
+  restoreAllInputs(slots[i].data);
+  _currentSlotIndex=i;
+  closeDataModal();
+  showToast(`「${slots[i].name}」を読み込みました`);
+}
+
+// スロットを削除
+function deleteSlot(i){
+  const slots=loadSlots();
+  if(!slots[i])return;
+  if(!confirm(`「${slots[i].name}」を削除しますか？`))return;
+  slots.splice(i,1);
+  saveSlots(slots);
+  renderSlotList();
+}
+
+// JSONとして全スロットをエクスポート
+// 指定したスロット配列をファイルに書き出す（共通処理）
+async function exportSlotsData(slotArr,label){
+  if(!slotArr||!slotArr.length){alert('書き出すデータがありません。');return;}
+  const json=JSON.stringify({version:'lifePlan_v1',exportedAt:new Date().toISOString(),slots:slotArr},null,2);
+  const safe=(label||'ライフプランデータ').replace(/[\\/:*?"<>|\s]/g,'_').slice(0,40);
+  const fname=`${safe}_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.json`;
+  const blob=new Blob([json],{type:'application/json'});
+  const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+
+  // 対応ブラウザ（Chrome/Edge等）：保存先を選べるネイティブ保存ダイアログを表示
+  if(!isIOS&&window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({
+        suggestedName:fname,
+        types:[{description:'JSONファイル',accept:{'application/json':['.json']}}]
+      });
+      const writable=await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      showToast('保存しました');
+      return;
+    }catch(err){
+      if(err&&err.name==='AbortError')return; // ユーザーがキャンセル
+      // 非対応・失敗時は下のダウンロード方式へフォールバック
+    }
+  }
+
+  // iPad/iPhone のみ：共有シートから「ファイルに保存」でiCloud/ファイルアプリへ書き出せる
+  // （macOS Safari の共有シートには「ファイルに保存」が無いため、デスクトップでは使わない）
+  if(isIOS&&navigator.share){
+    try{
+      const file=new File([blob],fname,{type:'application/json'});
+      if(!navigator.canShare||navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:label||'ライフプランデータ'});
+        return;
+      }
+    }catch(err){
+      if(err&&err.name==='AbortError')return; // ユーザーがキャンセル
+      // それ以外は下の方式へフォールバック
+    }
+  }
+
+  // PC（ダウンロード）方式：Safari/Chrome ともにダウンロードフォルダへ保存される
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=fname;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+
+  // iOS でダウンロードが効かない場合：テキストコピーで保存できるよう案内
+  if(isIOS){
+    setTimeout(()=>{
+      if(confirm('「ファイルに保存」の画面が出ない場合は、テキストとしてコピーして保存できます。\nコピー画面を開きますか？')){
+        showExportText(json,fname);
+      }
+    },800);
+  }
+}
+// 全データをまとめて書き出す
+async function exportJSON(){
+  const slots=loadSlots();
+  if(!slots.length){alert('保存データがありません。先にデータを保存してください。');return;}
+  await exportSlotsData(slots,`ライフプランデータ_全${slots.length}件`);
+}
+// 個別スロットを書き出す
+async function exportSlot(i){
+  const slots=loadSlots();
+  if(!slots[i])return;
+  await exportSlotsData([slots[i]],slots[i].name||('データ'+(i+1)));
+}
+
+// 取り込み候補を保持
+let _pendingImport=[];
+// JSON文字列を解析して「読み込む項目の選択」を表示
+function importJSONString(text){
+  try{
+    const obj=JSON.parse(text);
+    const incoming=obj.slots||[];
+    if(!incoming.length){alert('有効なデータが見つかりませんでした。');return;}
+    _pendingImport=incoming;
+    renderImportSelect();
+  }catch{alert('データの読み込みに失敗しました。テキスト/ファイルの内容をご確認ください。');}
+}
+// 取り込み候補をチェックボックス一覧で表示
+function renderImportSelect(){
+  const box=document.getElementById('importSelectBox');
+  if(!box)return;
+  if(!_pendingImport.length){box.style.display='none';box.innerHTML='';return;}
+  const existing=loadSlots();
+  const items=_pendingImport.map((s,idx)=>{
+    const dup=existing.find(x=>x.name===s.name&&x.savedAt===s.savedAt);
+    const dt=s.savedAt?new Date(s.savedAt).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    const selfN=escH(s.data?.selfName||'本人');
+    const meta=`${selfN}　${dt}保存${dup?'　<span style=\"color:#c0392b\">※既存と重複</span>':''}`;
+    return `<label style="display:flex;align-items:flex-start;gap:8px;padding:6px 4px;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer">
+      <input type="checkbox" class="imp-chk" value="${idx}"${dup?'':' checked'} style="margin-top:2px">
+      <span><b>${escH(s.name||('データ'+(idx+1)))}</b><br><span style="color:var(--text3);font-size:11px">${meta}</span></span>
+    </label>`;
+  }).join('');
+  box.innerHTML=`
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin:6px 0">読み込む項目を選択（${_pendingImport.length}件）</div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <button class="io-btn" style="padding:4px 8px" onclick="toggleAllImport(true)">すべて選択</button>
+      <button class="io-btn" style="padding:4px 8px" onclick="toggleAllImport(false)">すべて解除</button>
+    </div>
+    <div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 8px">${items}</div>
+    <div class="io-row" style="margin-top:8px">
+      <button class="io-btn" style="background:var(--blue-bg);color:var(--blue);border-color:var(--blue)" onclick="confirmImportSelected()">選択した項目を読み込む</button>
+      <button class="io-btn" onclick="cancelImport()">キャンセル</button>
+    </div>`;
+  box.style.display='block';
+  box.scrollIntoView({block:'nearest'});
+}
+function toggleAllImport(on){document.querySelectorAll('#importSelectBox .imp-chk').forEach(c=>c.checked=on);}
+function cancelImport(){_pendingImport=[];renderImportSelect();}
+// 選択された項目だけを取り込む
+function confirmImportSelected(){
+  const idxs=[...document.querySelectorAll('#importSelectBox .imp-chk:checked')].map(c=>+c.value);
+  if(!idxs.length){alert('読み込む項目を選択してください。');return;}
+  const slots=loadSlots();
+  let added=0,updated=0;
+  idxs.forEach(i=>{
+    const s=_pendingImport[i];if(!s)return;
+    const dupIdx=slots.findIndex(x=>x.name===s.name&&x.savedAt===s.savedAt);
+    if(dupIdx>=0){slots[dupIdx]=s;updated++;}
+    else{slots.push(s);added++;}
+  });
+  slots.sort((a,b)=>b.savedAt-a.savedAt);
+  if(slots.length>20)slots.length=20;
+  if(saveSlots(slots)){
+    renderSlotList();
+    _pendingImport=[];renderImportSelect();
+    alert(`${added}件を追加${updated?`・${updated}件を更新`:''}しました。`);
+  }
+}
+
+// JSONファイルをインポート
+function importJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{importJSONString(ev.target.result);e.target.value='';};
+  reader.onerror=()=>{alert('ファイルの読み込みに失敗しました。');e.target.value='';};
+  reader.readAsText(file);
+}
+
+// 全データをテキストエリアに書き出す
+// 指定したJSON文字列をテキストエリアに表示し、コピー用UIを開く（iOSフォールバック）
+function showExportText(json,fname){
+  const ta=document.getElementById('jsonText');
+  if(!ta)return;
+  // テキスト方式の details を開く
+  const det=ta.closest('details');
+  if(det)det.open=true;
+  ta.value=json;
+  ta.scrollIntoView({behavior:'smooth',block:'center'});
+  ta.focus();ta.select();
+  // 自動でコピーを試みる
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(json).then(()=>showToast('テキストをコピーしました')).catch(()=>{});
+  }
+}
+function fillJsonText(){
+  const slots=loadSlots();
+  if(!slots.length){alert('保存データがありません。先にデータを保存してください。');return;}
+  const json=JSON.stringify({version:'lifePlan_v1',exportedAt:new Date().toISOString(),slots},null,2);
+  const ta=document.getElementById('jsonText');
+  ta.value=json;ta.focus();ta.select();
+}
+// テキストエリアの内容をクリップボードへコピー
+async function copyJsonText(){
+  const ta=document.getElementById('jsonText');
+  if(!ta.value.trim()){fillJsonText();}
+  if(!ta.value.trim())return;
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    showToast('コピーしました');
+  }catch{
+    ta.focus();ta.select();
+    try{document.execCommand('copy');showToast('コピーしました');}
+    catch{alert('コピーできませんでした。テキストを手動で選択してコピーしてください。');}
+  }
+}
+// テキストエリアの内容からインポート
+function importJSONText(){
+  const ta=document.getElementById('jsonText');
+  const text=(ta.value||'').trim();
+  if(!text){alert('読み込むテキストを貼り付けてください。');return;}
+  importJSONString(text);
+}
+
+// モーダル開閉
+function openDataModal(){
+  // まずモーダルを表示（描画やfocusで例外が出ても表示は維持する）
+  const modal=document.getElementById('dataModal');
+  if(modal)modal.classList.remove('hidden');
+  try{renderSlotList();}catch(err){console.error('renderSlotList',err);}
+  try{
+    const nameEl=document.getElementById('saveSlotName');
+    // iPadではキーボードが勝手に出ないよう自動フォーカスしない
+    if(nameEl&&!/iPad|iPhone|iPod/.test(navigator.userAgent))nameEl.focus();
+  }catch(err){console.error('focus',err);}
+}
+function closeDataModal(){document.getElementById('dataModal').classList.add('hidden');_pendingImport=[];try{renderImportSelect();}catch{}}
+
+// トースト通知
+function showToast(msg){
+  const t=document.createElement('div');
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1916;color:#fff;padding:10px 20px;border-radius:var(--radius);font-size:13px;z-index:2000;opacity:0;transition:opacity .3s';
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>{t.style.opacity='1';});
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300);},2500);
+}
+
+// キーボードショートカット（Escape でモーダルを閉じる）
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeDataModal();
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();openDataModal();}
+});
+
+// ── PDF出力 ──────────────────────────────────────────────────────
+// ── 印刷用：入力情報サマリーを生成 ───────────────────────────
+function buildPdfInputSummary(){
+  const el=document.getElementById('pdfInputSummary');
+  if(!el)return;
+  const gv=id=>document.getElementById(id)?.value||'';
+  const nv=id=>+(document.getElementById(id)?.value||0);
+  const yen=v=>fmt(Math.round(+v||0))+'円';
+  const selOf=id=>{const s=document.getElementById(id);return s&&s.selectedIndex>=0?s.options[s.selectedIndex].text:'';};
+  const selfN=getSelfName(),spN=getSpName();
+  const selfA=getSelfAge(),spA=getSpAge();
+  const block=(title,rowsHtml)=>`<div class="pdf-sum-block"><div class="pdf-sum-h">${title}</div><table class="pdf-sum-table">${rowsHtml}</table></div>`;
+  const row=(k,v)=>`<tr><th>${k}</th><td>${v}</td></tr>`;
+
+  // 1. 家族情報
+  const nChild=nv('children');
+  const glabel=v=>v==='male'?'男性':'女性';
+  const selfGenderVal=document.getElementById('selfGender')?.value||'male';
+  const spGenderVal=document.getElementById('spGender')?.value||'female';
+  const custSBY=gv('custSelfBY'),custSBM=gv('custSelfBM'),custSBD=gv('custSelfBD');
+  const custPBY=gv('custSpBY'),custPBM=gv('custSpBM'),custPBD=gv('custSpBD');
+  const fmtB=(y,m,d)=>(y&&m&&d)?`${y}年${m}月${d}日生`:(y&&m)?`${y}年${m}月生`:'';
+  const selfBStr=fmtB(custSBY,custSBM,custSBD);
+  const spBStr=fmtB(custPBY,custPBM,custPBD);
+  let famRows=row('世帯主',`${selfN}　${selfA}歳　${glabel(selfGenderVal)}${selfBStr?'　'+selfBStr:''}`);
+  if(spN&&!isNaN(spA))famRows+=row('配偶者',`${spN}　${spA}歳　${glabel(spGenderVal)}${spBStr?'　'+spBStr:''}`);
+  const childLabels=['第一子','第二子','第三子','第四子','第五子'];
+  for(let i=0;i<nChild;i++){
+    const cn=gv('childName-'+i)||childLabels[i];
+    const by=nv('childBY-'+i),bm=nv('childBM-'+i),bd=nv('childBD-'+i);
+    const cg=document.getElementById('childGender-'+i)?.value||'male';
+    const cgLabel=cg==='male'?'男性':'女性';
+    famRows+=row(childLabels[i],`${cn}　${by?calcAge(by,bm)+'歳　':''}${cgLabel}${by?'　'+by+'年'+bm+'月'+(bd?bd+'日':'')+'生':''}`);
+  }
+  famRows+=row('プラン満了年齢',gv('endAge')+'歳　/　インフレ率 '+gv('inflationRate')+'%');
+
+  // 2. 収入情報
+  let incRows=row('本人 年収',yen(nv('selfIncome'))+`（上昇率 ${gv('selfIncomeGrowth')}%・副業 ${yen(nv('selfSideIncome'))}）`);
+  incRows+=row('本人 退職',gv('selfRetireAge')+'歳　退職金 '+yen(nv('selfSeverance')));
+  if(spN){
+    incRows+=row('配偶者 年収',yen(nv('spIncome'))+`（上昇率 ${gv('spIncomeGrowth')}%・副業 ${yen(nv('spSideIncome'))}）`);
+    incRows+=row('配偶者 退職',gv('spRetireAge')+'歳　退職金 '+yen(nv('spSeverance')));
+  }
+  incRows+=row('年金（本人）',selOf('selfPensionType')+'　受取 '+gv('selfPensionStart')+'歳〜　月額 '+yen(nv('selfPensionAmt')));
+  if(spN)incRows+=row('年金（配偶者）',selOf('spPensionType')+'　受取 '+gv('spPensionStart')+'歳〜　月額 '+yen(nv('spPensionAmt')));
+  incRows+=row('その他収入（年額）',yen(nv('otherIncome')));
+
+  // 3. 教育・結婚
+  let eduRows='';
+  for(let i=0;i<nChild;i++){
+    const cn=gv('childName-'+i)||childLabels[i];
+    const preset=selOf('eduPreset_'+i);
+    const univ=selOf('edu_univ_type_'+i);
+    const remit=gv('remitance_flag_'+i)==='1'?`仕送りあり（年${yen(nv('remitance_amt_'+i))}）`:'仕送りなし';
+    const mAmt=nv('marriage_amt_'+i),mAge=nv('marriage_age_'+i);
+    const marriage=mAmt>0?`結婚援助 ${yen(mAmt)}（子${mAge}歳時）`:'結婚援助なし';
+    eduRows+=row(cn,`${preset} ／ 大学：${univ} ／ ${remit} ／ ${marriage}`);
+  }
+  if(!eduRows)eduRows=row('お子様','登録なし');
+
+  // 4. 住宅情報
+  let houseRows=row('居住形態',selOf('housingType'));
+  if(gv('housingType')==='owned'){
+    houseRows+=row('本人ローン',`借入 ${yen(nv('selfLoanAmt'))}（${gv('selfLoanYear')}年〜${gv('selfLoanYears')}年・金利${gv('loanRate')}%）　月返済 ${yen(nv('loanMonthly'))}　団信：${selOf('selfDansin')}`);
+    if(document.getElementById('spLoanEnabled')?.checked)
+      houseRows+=row('配偶者ローン',`借入 ${yen(nv('spLoanAmt'))}（${gv('spLoanYear')}年〜${gv('spLoanYears')}年・金利${gv('spLoanRate')}%）　月返済 ${yen(nv('spLoanMonthly'))}　団信：${selOf('spDansin')}`);
+    houseRows+=row('完済予定',gv('loanEndAge')+'歳');
+  }else{
+    houseRows+=row('月額家賃・管理費',yen(nv('monthlyRent')));
+  }
+
+  // 5. 生活費情報
+  const livingM=getMonthlyLiving();
+  const isDetail=document.getElementById('livingMode')?.value!=='simple';
+  const livMode=isDetail?'詳細入力（項目別）':'簡易入力（合計）';
+  let livRows=row('入力方法',livMode);
+  if(isDetail){
+    livRows+=row('🍽 食費',yen(nv('cFood'))+'　日用品 '+yen(nv('cDaily'))+'　外食 '+yen(nv('cDining')));
+    livRows+=row('💡 光熱・通信',`電気 ${yen(nv('cElec'))}　ガス ${yen(nv('cGas'))}　水道 ${yen(nv('cWater'))}　通信 ${yen(nv('cComm'))}`);
+    livRows+=row('🚗 交通・車両',`交通 ${yen(nv('cTransport'))}　車両 ${yen(nv('cCar'))}　駐車場 ${yen(nv('cParking'))}`);
+    livRows+=row('🎭 娯楽・交際',`娯楽 ${yen(nv('cLeisure'))}　交際 ${yen(nv('cSocial'))}　小遣い ${yen(nv('cAllowance'))}　旅行 ${yen(nv('cTravel'))}`);
+    livRows+=row('🏥 医療・その他',`医療 ${yen(nv('cMedical'))}　衣服 ${yen(nv('cClothing'))}　雑費 ${yen(nv('cOther'))}`);
+  }
+  livRows+=row('現役期 月額合計',yen(livingM)+`（年 ${yen(livingM*12)}）`);
+  livRows+=row('老後 月額生活費',yen(nv('retireLiving')));
+  const fixedTaxTotal=(nv('fixedTax')||0)+(nv('cityTax')||0);
+  if(fixedTaxTotal>0)livRows+=row('固定資産税・都市計画税（年額）',yen(fixedTaxTotal));
+
+  // 6. ライフイベント・各種ローン
+  const events=getLifeEvents();
+  let evRows='';
+  events.forEach(e=>{evRows+=row(e.name+'（本人'+e.age+'歳）',yen(e.cost));});
+  const loans=(typeof getLoanExtras==='function')?getLoanExtras():[];
+  loans.forEach((l,i)=>{evRows+=row((l.name||('借入'+(i+1)))+'（月返済）',yen(l.monthly)+(l.endY?'　完済 '+l.endY+'年'+(l.endM||12)+'月':''));});
+  if(!evRows)evRows=row('登録','ライフイベント・その他借入なし');
+
+  // 7. セカンドライフ
+  let slRows=row('セカンドライフ開始',gv('secondLifeAge')+'歳　〜　想定寿命 '+gv('secondLifeEndAge')+'歳');
+  slRows+=row('ゆとり上乗せ（月額）',yen(nv('retireExtra')));
+  slRows+=row('老後その他収入（月額）',yen(nv('retireOtherIncome')));
+
+  // 8. 万一の時（必要保障）
+  let reqRows=row('本人死亡時 遺族生活費（月）',yen(nv('reqSelfLiving')))+
+    row('本人死亡時 遺族年金（月）',yen(nv('reqSelfWidowPension')))+
+    row('本人死亡時 葬儀・整理費',yen(nv('reqSelfFuneral'))+' ／ 住宅ローン残 '+yen(nv('reqSelfMortgage')));
+  reqRows+=row('配偶者死亡時 遺族生活費（月）',yen(nv('reqSpLiving')))+
+    row('配偶者死亡時 遺族年金（月）',yen(nv('reqSpWidowPension')))+
+    row('配偶者死亡時 葬儀・整理費',yen(nv('reqSpFuneral'))+' ／ 住宅ローン残 '+yen(nv('reqSpMortgage')));
+
+  // 9. 資金・資産
+  const inv=getInv();
+  let asRows=row('現在の預貯金',yen(nv('savings'))+`（利回り ${gv('savingsRate')}%）`);
+  inv.forEach(v=>{asRows+=row(v.name,`現在残高 ${yen(v.balance)} ／ 月 ${yen(v.monthly)} 積立・利回り ${(v.rate*100).toFixed(1)}%（${v.stopAge}歳まで）`);});
+
+  el.innerHTML=
+    block('👪 家族情報',famRows)+
+    block('💰 収入情報',incRows)+
+    block('🎓 教育・結婚',eduRows)+
+    block('🏠 住宅情報',houseRows)+
+    block('🍽 生活費情報',livRows)+
+    block('📅 ライフイベント・各種ローン',evRows)+
+    block('🌅 セカンドライフ',slRows)+
+    block('🛡 万一の時（必要保障設定）',reqRows)+
+    block('🏦 資金・資産',asRows);
+}
+
+function exportPDF(){
+  // PDFヘッダー情報をセット
+  const selfN=getSelfName(),spN=getSpName();
+  const selfA=getSelfAge(),spA=getSpAge();
+  const subtitle=document.getElementById('resultSubtitle')?.textContent||'';
+  document.getElementById('pdfSubLine').textContent=
+    `${selfN}（${selfA}歳）・${spN}（${spA}歳） ／ ${subtitle}`;
+  let dateStr;
+  const pd=document.getElementById('planDate')?.value;
+  if(pd){const dp=pd.split('-');dateStr=`${+dp[0]}年${+dp[1]}月${+dp[2]}日`;}
+  else{const now=new Date();dateStr=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;}
+  document.getElementById('pdfDate').textContent=`作成日：${dateStr}`;
+
+  // 表紙情報をセット
+  document.getElementById('pdfCoverDate').textContent=`作成日 ${dateStr}`;
+  document.getElementById('pdfCoverName').innerHTML=
+    `${selfN}<span class="cv-sama">様</span>`;
+  // 家族構成
+  const fam=[`${selfN}（${selfA}歳）`];
+  if(spN&&!isNaN(spA))fam.push(`配偶者：${spN}（${spA}歳）`);
+  const nChild=parseInt(document.getElementById('children')?.value||'0',10)||0;
+  const kids=[];
+  for(let i=0;i<nChild;i++){
+    const cn=document.getElementById(`childName-${i}`)?.value||`お子様${i+1}`;
+    const by=parseInt(document.getElementById(`childBY-${i}`)?.value||'0',10);
+    const bm=parseInt(document.getElementById(`childBM-${i}`)?.value||'1',10);
+    const bd=parseInt(document.getElementById(`childBD-${i}`)?.value||'0',10);
+    let ageStr='';
+    if(by){const a=calcAge(by,bm);ageStr=`（${a}歳）`;}
+    kids.push(`${cn}${ageStr}`);
+  }
+  const genderLabel=v=>v==='male'?'男性':'女性';
+  const selfGender=document.getElementById('selfGender')?.value||'male';
+  const spGender=document.getElementById('spGender')?.value||'female';
+  const custSelfBY=document.getElementById('custSelfBY')?.value;
+  const custSelfBM=document.getElementById('custSelfBM')?.value;
+  const custSelfBD=document.getElementById('custSelfBD')?.value;
+  const custSpBY=document.getElementById('custSpBY')?.value;
+  const custSpBM=document.getElementById('custSpBM')?.value;
+  const custSpBD=document.getElementById('custSpBD')?.value;
+  const fmtBirth=(y,m,d)=>(y&&m&&d)?`${y}年${m}月${d}日生`:(y&&m)?`${y}年${m}月生`:'';
+  const selfBirthStr=fmtBirth(custSelfBY,custSelfBM,custSelfBD);
+  const spBirthStr=fmtBirth(custSpBY,custSpBM,custSpBD);
+  let famHtml=`世帯主：${selfN}（${selfA}歳・${genderLabel(selfGender)}${selfBirthStr?'　'+selfBirthStr:''}）`;
+  if(spN&&!isNaN(spA))famHtml+=`　／　配偶者：${spN}（${spA}歳・${genderLabel(spGender)}${spBirthStr?'　'+spBirthStr:''}）`;
+  if(kids.length)famHtml+=`<br>お子様：${kids.join('　')}`;
+  document.getElementById('pdfCoverFamily').innerHTML=famHtml;
+
+  // 入力情報サマリーを生成
+  buildPdfInputSummary();
+
+  // 全パネルを表示してグラフをリサイズ
+  const panels=document.querySelectorAll('.panel');
+  panels.forEach(p=>p.style.display='block');
+  const charts=[chartInst,reqChartInst,reqTimelineInst].filter(Boolean);
+  charts.forEach(c=>c.resize());
+
+  // プレビューモーダルを開く
+  setTimeout(()=>openPrintPreview(),300);
+}
+
+let _ppZoom=1.0;
+function openPrintPreview(){
+  const src=document.getElementById('results');
+  const page=document.getElementById('printPreviewPage');
+  page.innerHTML='';
+  const clone=src.cloneNode(true);
+
+  // @media print 相当の表示制御をクローンに適用
+  clone.querySelectorAll('.pdf-section').forEach(el=>el.style.display='block');
+  clone.querySelectorAll('.pdf-hide').forEach(el=>el.style.display='none');
+  clone.querySelectorAll('.pdf-cover').forEach(el=>el.style.display='flex');
+  clone.querySelectorAll('.pdf-header').forEach(el=>el.style.display='flex');
+  clone.querySelectorAll('.tabs').forEach(el=>el.style.display='none');
+  clone.querySelectorAll('.panel').forEach(el=>el.style.display='block');
+  clone.querySelectorAll('.results-header').forEach(el=>el.style.display='none');
+  // @page breakの代わりに区切り線を追加
+  clone.querySelectorAll('.pdf-page-break').forEach(el=>{
+    el.style.borderTop='3px dashed #ccc';
+    el.style.marginTop='20px';
+    el.style.paddingTop='20px';
+  });
+
+  // canvasの描画をコピー
+  const origCanvases=src.querySelectorAll('canvas');
+  const cloneCanvases=clone.querySelectorAll('canvas');
+  origCanvases.forEach((oc,idx)=>{
+    const cc=cloneCanvases[idx];
+    if(cc){cc.width=oc.width;cc.height=oc.height;cc.getContext('2d').drawImage(oc,0,0);}
+  });
+
+  page.appendChild(clone);
+  _ppZoom=1.0;
+  document.getElementById('ppZoomLabel').textContent='100%';
+  const wrap=document.getElementById('printPreviewPageWrap');
+  wrap.style.transform='scale(1)';
+  wrap.style.width='';
+  wrap.style.height='';
+  document.getElementById('printPreviewOverlay').classList.add('active');
+}
+
+function ppZoom(delta){
+  _ppZoom=Math.min(2,Math.max(0.4,_ppZoom+delta));
+  document.getElementById('ppZoomLabel').textContent=Math.round(_ppZoom*100)+'%';
+  const wrap=document.getElementById('printPreviewPageWrap');
+  wrap.style.transform=`scale(${_ppZoom})`;
+  // スケール後の実寸をラッパーに反映してスクロール領域を正しく確保
+  const page=document.getElementById('printPreviewPage');
+  wrap.style.width=page.offsetWidth*_ppZoom+'px';
+  wrap.style.height=page.offsetHeight*_ppZoom+'px';
+}
+
+function closePrintPreview(){
+  document.getElementById('printPreviewOverlay').classList.remove('active');
+  document.getElementById('printPreviewPage').innerHTML='';
+  // パネルを元の表示状態に戻す（resultsが表示中なら維持）
+}
+
+function executePrint(){
+  closePrintPreview();
+  setTimeout(()=>window.print(),100);
+}
+
+function swTab(name,btn){
+  ['chart','table','events','inv','ins','req','second','saveload'].forEach(t=>document.getElementById('tab-'+t).classList.toggle('on',t===name));
+  document.querySelectorAll('.tabs .tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if(name==='saveload') renderSlotList2();
+}
+
+// ── インライン保存タブ ──
+let _currentSlotIndex=-1; // 現在読み込み中のスロット番号（-1=未保存）
+
+function renderSlotList2(){
+  const slots=loadSlots();
+  const list=document.getElementById('slotList2');
+  const empty=document.getElementById('slotEmpty2');
+  if(!list)return;
+  // 上書きバナー
+  const banner=document.getElementById('saveloadOverwriteBanner');
+  if(banner){
+    if(_currentSlotIndex>=0&&slots[_currentSlotIndex]){
+      document.getElementById('saveloadCurrentName').textContent=slots[_currentSlotIndex].name;
+      banner.style.display='flex';
+    } else {
+      banner.style.display='none';
+    }
+  }
+  if(!slots.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  list.innerHTML=slots.map((s,i)=>{
+    const dt=new Date(s.savedAt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const isCurrent=i===_currentSlotIndex;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);${isCurrent?'background:var(--green-bg);margin:0 -4px;padding:8px 4px;border-radius:var(--radius)':''}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:${isCurrent?'700':'500'};color:${isCurrent?'var(--green)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${isCurrent?'▶ ':''}`+escH(s.name)+`</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:1px">${dt}保存</div>
+      </div>
+      <button onclick="loadSlotInline(${i})" style="padding:4px 12px;font-size:12px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue);border-radius:var(--radius);cursor:pointer;font-family:inherit;white-space:nowrap">読み込む</button>
+      <button onclick="overwriteSlotInline(${i})" style="padding:4px 12px;font-size:12px;background:var(--green-bg);color:var(--green);border:1px solid var(--green);border-radius:var(--radius);cursor:pointer;font-family:inherit;white-space:nowrap">上書き</button>
+      <button onclick="deleteSlotInline(${i})" style="padding:4px 8px;font-size:12px;background:none;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;font-family:inherit">削除</button>
+    </div>`;
+  }).join('');
+}
+
+function saveSlotInline(){
+  const nameEl=document.getElementById('saveSlotName2');
+  const name=(nameEl.value.trim())||`データ ${new Date().toLocaleDateString('ja-JP')}`;
+  const slots=loadSlots();
+  const existing=slots.findIndex(s=>s.name===name);
+  if(existing>=0){if(!confirm(`「${name}」は既に存在します。上書きしますか？`))return;slots.splice(existing,1);}
+  slots.unshift({name,savedAt:Date.now(),data:collectAllInputs()});
+  if(slots.length>20)slots.length=20;
+  if(!saveSlots(slots))return;
+  _currentSlotIndex=0;
+  nameEl.value='';
+  renderSlotList2();
+  renderSlotList();
+  // フィードバック
+  const btn=nameEl.nextElementSibling;
+  const orig=btn.textContent;btn.textContent='✅ 保存しました！';btn.disabled=true;
+  setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1800);
+}
+
+function loadSlotInline(i){
+  const slots=loadSlots();
+  if(!slots[i])return;
+  if(!confirm(`「${slots[i].name}」を読み込みます。現在の入力内容は上書きされます。よろしいですか？`))return;
+  loadSlot(i);
+  _currentSlotIndex=i;
+  renderSlotList2();
+}
+
+function overwriteSlotInline(i){
+  const slots=loadSlots();
+  if(!slots[i])return;
+  if(!confirm(`「${slots[i].name}」に上書き保存しますか？`))return;
+  slots[i]={...slots[i],savedAt:Date.now(),data:collectAllInputs()};
+  if(!saveSlots(slots))return;
+  _currentSlotIndex=i;
+  renderSlotList2();
+  renderSlotList();
+  alert('✅ 上書き保存しました');
+}
+
+function overwriteCurrentSlot(){
+  if(_currentSlotIndex<0)return;
+  overwriteSlotInline(_currentSlotIndex);
+}
+
+function deleteSlotInline(i){
+  const slots=loadSlots();
+  if(!slots[i]||!confirm(`「${slots[i].name}」を削除しますか？`))return;
+  slots.splice(i,1);
+  saveSlots(slots);
+  if(_currentSlotIndex===i)_currentSlotIndex=-1;
+  else if(_currentSlotIndex>i)_currentSlotIndex--;
+  renderSlotList2();
+  renderSlotList();
+}
+
+// Initialize
+addInsLump('終身保険A',10000000,200000,65,5000000,99,99);
+addInsIncome('収入保障保険B',100000,150000,40,65,0,65);
+addInv('nisa',50000,5,500000,65);
+addInv('ideco',23000,4,200000,60);
+autoFillAvgSalary('self');autoFillAvgSalary('sp');
+calcPension('self');calcPension('sp');
+toggleHousing();calcLoan();
+updateChildInputs(); // 教育パネルも内部で初期化される
+updateAgeDisp('self');updateAgeDisp('sp');
+updateLivingTotal();
+calcSocialInsurance('self');
+calcSocialInsurance('sp');
+calcChildAllowance();
+fetchTTM();
+</script>
+</body>
+</html>
