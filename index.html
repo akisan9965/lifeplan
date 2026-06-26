@@ -967,7 +967,82 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
         <p class="note" style="margin-top:6px">書き出したテキストをメモ/メールなどに保存し、別端末で貼り付けて「テキストから読み込む」を押すとデータを移せます。</p>
       </details>
 
-      <p class="note" style="margin-top:8px">※ 通常はこのブラウザ内に保存されます。<b>iPad/iPhoneやiCloud経由で開いた場合はブラウザ内保存が消えることがある</b>ため、「JSONファイルに書き出す」または上記テキスト方式でデータを移してください。</p>
+      <!-- iCloud Drive 直接同期 -->
+      <details id="icloudSyncDetails" style="margin-top:12px;border:1px solid var(--blue);border-radius:var(--radius);overflow:hidden">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--blue);padding:10px 14px;background:var(--blue-bg);list-style:none;display:flex;align-items:center;gap:6px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.72 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.63 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          📂 iCloud Drive 直接同期 — アカウント不要・シームレス共有
+        </summary>
+        <div style="padding:14px">
+          <p style="font-size:11px;color:var(--text2);margin:0 0 12px 0">iCloud Drive上のJSONファイルを経由してMac・iPadのデータを共有します。Googleアカウント不要。iOS 17以上が必要です。</p>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button onclick="icloudSave()" style="flex:1;padding:9px;font-size:12px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              iCloud Driveに保存
+            </button>
+            <button onclick="icloudLoad()" style="flex:1;padding:9px;font-size:12px;font-weight:700;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              iCloud Driveから読込
+            </button>
+          </div>
+          <div id="icloudSyncStatus" style="font-size:11px;color:var(--text3);min-height:16px"></div>
+          <details style="margin-top:10px">
+            <summary style="cursor:pointer;font-size:11px;color:var(--blue);font-weight:700">使い方・注意事項</summary>
+            <ul style="font-size:11px;color:var(--text2);line-height:2;margin-top:8px;padding-left:18px">
+              <li><b>Mac（Safari）：</b>「保存」→ ファイル選択ダイアログ → iCloud Driveを選んで保存。タブを開き直すたびに許可ダイアログが1回表示されます</li>
+              <li><b>Mac（Chrome）：</b>初回のみファイル選択。以降はダイアログなしで自動上書き</li>
+              <li><b>iPad（Safari）：</b>「保存」→ ファイル選択ピッカー → iCloud Driveの同じファイルを選択。毎回1タップ必要です</li>
+              <li>保存後、iCloudの同期に数秒〜1分かかる場合があります</li>
+              <li>ファイルの保存先はiCloud Drive内のどこでも構いません</li>
+            </ul>
+          </details>
+        </div>
+      </details>
+
+      <!-- クラウド同期（Firebase） -->
+      <details id="cloudSyncDetails" style="margin-top:12px;border:1px solid var(--green);border-radius:var(--radius);overflow:hidden">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--green);padding:10px 14px;background:var(--green-bg);list-style:none;display:flex;align-items:center;gap:6px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          ☁️ クラウド同期 — Mac・iPad でデータをシームレスに共有
+        </summary>
+        <div style="padding:14px">
+          <div class="fld" style="margin-bottom:8px">
+            <label>Firebase Database URL（初回のみ設定）</label>
+            <input type="url" id="cloudDbUrl" placeholder="https://your-project-default-rtdb.firebaseio.com" style="font-size:12px" oninput="saveCloudSettings()">
+          </div>
+          <div class="fld" style="margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:8px">同期PIN
+              <button onclick="generateSyncPin()" style="font-size:10px;padding:2px 8px;background:var(--green-bg);color:var(--green);border:1px solid var(--green);border-radius:4px;cursor:pointer;font-family:inherit">自動生成</button>
+            </label>
+            <input type="text" id="cloudPin" placeholder="英数字で自由に設定（例：MyFamily2026）" maxlength="40" style="font-size:13px;font-weight:700;letter-spacing:1px" oninput="saveCloudSettings()">
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Mac・iPadで同じPINを入力することでデータが共有されます</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button onclick="cloudSave()" style="flex:1;padding:9px;font-size:12px;font-weight:700;background:var(--green);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              クラウドに保存
+            </button>
+            <button onclick="cloudLoad()" style="flex:1;padding:9px;font-size:12px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              クラウドから読込
+            </button>
+          </div>
+          <div id="cloudSyncStatus" style="font-size:11px;color:var(--text3);min-height:16px"></div>
+          <details style="margin-top:10px">
+            <summary style="cursor:pointer;font-size:11px;color:var(--blue);font-weight:700">初回設定手順（Firebase 無料・約5分）</summary>
+            <ol style="font-size:11px;color:var(--text2);line-height:2;margin-top:8px;padding-left:18px">
+              <li>Googleアカウントで <a href="https://console.firebase.google.com" target="_blank" style="color:var(--blue)">Firebase Console</a> にアクセスし「プロジェクトを追加」</li>
+              <li>左メニュー「構築」→「Realtime Database」→「データベースを作成」→ ロケーション「asia-southeast1」を選択</li>
+              <li>「テストモードで開始」を選択し作成完了</li>
+              <li>データベースURLをコピー（例: https://xxx-default-rtdb.asia-southeast1.firebasedatabase.app）して上の欄に貼り付け</li>
+              <li>「ルール」タブで以下を設定して「公開」：<br><code style="font-size:10px;background:var(--surface2);padding:2px 4px;border-radius:3px">{"rules":{"lifePlanSync":{"$pin":{".read":true,".write":true}}}}</code></li>
+              <li>任意のPINをMac・iPad両方で入力して「クラウドに保存」→「クラウドから読込」で同期完了</li>
+            </ol>
+          </details>
+        </div>
+      </details>
+
+      <p class="note" style="margin-top:8px">※ 通常はこのブラウザ内に保存されます。<b>iPad/iPhoneやiCloud経由で開いた場合はブラウザ内保存が消えることがある</b>ため、上記「クラウド同期」またはテキスト方式でデータを移してください。</p>
     </div>
     <div class="modal-footer">
       <button class="modal-btn cancel" onclick="closeDataModal()">閉じる</button>
@@ -2965,7 +3040,10 @@ async function exportSlotsData(slotArr,label){
   if(!slotArr||!slotArr.length){alert('書き出すデータがありません。');return;}
   const json=JSON.stringify({version:'lifePlan_v1',exportedAt:new Date().toISOString(),slots:slotArr},null,2);
   const safe=(label||'ライフプランデータ').replace(/[\\/:*?"<>|\s]/g,'_').slice(0,40);
-  const fname=`${safe}_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.json`;
+  const countKey='lifePlanExportCount_'+safe;
+  const count=(+(localStorage.getItem(countKey)||0))+1;
+  localStorage.setItem(countKey,count);
+  const fname=`${safe}_${String(count).padStart(3,'0')}.json`;
   const blob=new Blob([json],{type:'application/json'});
   const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 
@@ -3154,15 +3232,162 @@ function importJSONText(){
 
 // モーダル開閉
 function openDataModal(){
-  // まずモーダルを表示（描画やfocusで例外が出ても表示は維持する）
   const modal=document.getElementById('dataModal');
   if(modal)modal.classList.remove('hidden');
   try{renderSlotList();}catch(err){console.error('renderSlotList',err);}
+  try{loadCloudSettings();}catch(err){}
   try{
     const nameEl=document.getElementById('saveSlotName');
-    // iPadではキーボードが勝手に出ないよう自動フォーカスしない
     if(nameEl&&!/iPad|iPhone|iPod/.test(navigator.userAgent))nameEl.focus();
   }catch(err){console.error('focus',err);}
+}
+
+// ── iCloud Drive 直接同期 ──
+async function _idbFileHandle(mode,handle){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open('lifePlanIDB',1);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore('handles');
+    req.onsuccess=e=>{
+      const db=e.target.result;
+      const tx=db.transaction('handles','readwrite');
+      if(mode==='put'){tx.objectStore('handles').put(handle,'icloudFile');tx.oncomplete=()=>{db.close();resolve();};}
+      else{const r=tx.objectStore('handles').get('icloudFile');r.onsuccess=()=>{db.close();resolve(r.result||null);};r.onerror=()=>{db.close();resolve(null);};}
+    };
+    req.onerror=()=>resolve(null);
+  });
+}
+function setICloudStatus(msg,color){
+  const el=document.getElementById('icloudSyncStatus');
+  if(el){el.textContent=msg;el.style.color=color||'var(--text3)';}
+}
+async function icloudSave(){
+  if(location.protocol==='file:'){alert('ローカルファイルとして開いているため、この機能は使えません。\nGitHub Pages（https://...）経由でアクセスしてご利用ください。');return;}
+  if(!window.showSaveFilePicker&&!window.showOpenFilePicker){alert('このブラウザはファイル書き込みに対応していません。\nMac: Chrome/Safari、iPad: iOS 17以上のSafariをお使いください。');return;}
+  setICloudStatus('保存中...','var(--text3)');
+  try{
+    const data=JSON.stringify({slots:loadSlots(),savedAt:new Date().toISOString()});
+    // 既存ハンドルを試みる
+    let handle=await _idbFileHandle('get');
+    if(handle){
+      try{
+        const perm=await handle.requestPermission({mode:'readwrite'});
+        if(perm!=='granted')handle=null;
+      }catch{handle=null;}
+    }
+    if(!handle){
+      if(window.showSaveFilePicker){
+        handle=await window.showSaveFilePicker({suggestedName:'lifePlan_sync.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+      } else {
+        // iOS fallback: showOpenFilePicker で既存ファイルを選択して書き込む
+        [handle]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+        const perm=await handle.requestPermission({mode:'readwrite'});
+        if(perm!=='granted'){setICloudStatus('書き込み権限が得られませんでした','var(--red)');return;}
+      }
+      await _idbFileHandle('put',handle);
+    }
+    const writable=await handle.createWritable();
+    await writable.write(data);
+    await writable.close();
+    const ts=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    setICloudStatus('✓ 保存完了 '+ts,'var(--green)');
+    showToast('iCloud Driveに保存しました');
+  }catch(e){
+    if(e.name==='AbortError'){setICloudStatus('','');return;}
+    setICloudStatus('✗ 保存失敗: '+e.message,'var(--red)');
+  }
+}
+async function icloudLoad(){
+  if(location.protocol==='file:'){alert('ローカルファイルとして開いているため、この機能は使えません。\nGitHub Pages（https://...）経由でアクセスしてご利用ください。');return;}
+  if(!window.showOpenFilePicker){alert('このブラウザはファイル選択に対応していません。');return;}
+  setICloudStatus('読み込み中...','var(--text3)');
+  try{
+    let handle=await _idbFileHandle('get');
+    if(handle){
+      try{const perm=await handle.queryPermission({mode:'read'});if(perm!=='granted')handle=null;}catch{handle=null;}
+    }
+    if(!handle){
+      [handle]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+      await _idbFileHandle('put',handle);
+    }
+    const file=await handle.getFile();
+    const text=await file.text();
+    const data=JSON.parse(text);
+    if(!data?.slots?.length){setICloudStatus('ファイルにデータがありません','var(--amber)');alert('ファイルにデータがありません');return;}
+    const ts=new Date(data.savedAt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    if(!confirm(`iCloud Driveのデータ（${data.slots.length}件・${ts}保存）を読み込みますか？\n現在のローカルデータは上書きされます。`))return;
+    saveSlots(data.slots);
+    renderSlotList();
+    try{renderSlotList2();}catch{}
+    setICloudStatus('✓ 読込完了（'+ts+'保存）','var(--green)');
+    showToast('iCloud Driveから読み込みました');
+  }catch(e){
+    if(e.name==='AbortError'){setICloudStatus('','');return;}
+    setICloudStatus('✗ 読込失敗: '+e.message,'var(--red)');
+  }
+}
+
+// ── クラウド同期 ──
+function saveCloudSettings(){
+  localStorage.setItem('cloudDbUrl',document.getElementById('cloudDbUrl')?.value||'');
+  localStorage.setItem('cloudPin',document.getElementById('cloudPin')?.value||'');
+}
+function loadCloudSettings(){
+  const u=localStorage.getItem('cloudDbUrl')||'';
+  const p=localStorage.getItem('cloudPin')||'';
+  const ue=document.getElementById('cloudDbUrl');if(ue)ue.value=u;
+  const pe=document.getElementById('cloudPin');if(pe)pe.value=p;
+}
+function generateSyncPin(){
+  const pin=Math.random().toString(36).slice(2,8).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
+  const el=document.getElementById('cloudPin');if(el){el.value=pin;saveCloudSettings();}
+}
+function setCloudStatus(msg,color){
+  const el=document.getElementById('cloudSyncStatus');
+  if(el){el.textContent=msg;el.style.color=color||'var(--text3)';}
+}
+async function cloudSave(){
+  const url=(localStorage.getItem('cloudDbUrl')||'').trim().replace(/\/+$/,'');
+  const pin=(localStorage.getItem('cloudPin')||'').trim();
+  if(!url){alert('Firebase Database URLを入力してください');return;}
+  if(!pin){alert('同期PINを入力してください');return;}
+  const slots=loadSlots();
+  const payload=JSON.stringify({slots,savedAt:new Date().toISOString()});
+  setCloudStatus('保存中...','var(--text3)');
+  try{
+    const res=await fetch(`${url}/lifePlanSync/${encodeURIComponent(pin)}.json`,{
+      method:'PUT',headers:{'Content-Type':'application/json'},body:payload
+    });
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const ts=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    setCloudStatus('✓ 保存完了 '+ts,'var(--green)');
+    showToast('クラウドに保存しました');
+  }catch(e){
+    setCloudStatus('✗ 保存失敗: '+e.message,'var(--red)');
+    alert('クラウド保存に失敗しました。\nFirebase URLとPINを確認してください。\n\n'+e.message);
+  }
+}
+async function cloudLoad(){
+  const url=(localStorage.getItem('cloudDbUrl')||'').trim().replace(/\/+$/,'');
+  const pin=(localStorage.getItem('cloudPin')||'').trim();
+  if(!url){alert('Firebase Database URLを入力してください');return;}
+  if(!pin){alert('同期PINを入力してください');return;}
+  setCloudStatus('読み込み中...','var(--text3)');
+  try{
+    const res=await fetch(`${url}/lifePlanSync/${encodeURIComponent(pin)}.json`);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(!data?.slots?.length){setCloudStatus('クラウドにデータがありません','var(--amber)');alert('クラウドにデータがありません');return;}
+    const ts=new Date(data.savedAt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    if(!confirm(`クラウドのデータ（${data.slots.length}件・${ts}保存）を読み込みますか？\n現在のローカルデータは上書きされます。`))return;
+    saveSlots(data.slots);
+    renderSlotList();
+    try{renderSlotList2();}catch{}
+    setCloudStatus('✓ 読込完了 '+ts,'var(--green)');
+    showToast('クラウドから読み込みました');
+  }catch(e){
+    setCloudStatus('✗ 読込失敗: '+e.message,'var(--red)');
+    alert('クラウド読み込みに失敗しました。\nFirebase URLとPINを確認してください。\n\n'+e.message);
+  }
 }
 function closeDataModal(){document.getElementById('dataModal').classList.add('hidden');_pendingImport=[];try{renderImportSelect();}catch{}}
 
