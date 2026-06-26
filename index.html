@@ -527,7 +527,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
         <option value="other">その他</option>
       </select>
     </div>
-    <div class="fld"><label>月額家賃・管理費（円）</label><input type="number" id="monthlyRent" value="0" step="5000"></div>
+    <div class="fld"><label id="monthlyRentLabel">月額家賃（円）</label><input type="number" id="monthlyRent" value="0" step="5000"></div>
   </div>
 
   <div id="loanSection">
@@ -1295,6 +1295,13 @@ function toggleHousing(){
   const t=document.getElementById('housingType').value;
   document.getElementById('loanSection').style.display=t==='owned'?'block':'none';
   document.getElementById('fixedTaxSection').style.display=(t==='owned'||t==='paid')?'block':'none';
+  const lbl=document.getElementById('monthlyRentLabel');
+  if(lbl){
+    if(t==='rent')lbl.textContent='月額家賃（円）';
+    else if(t==='owned')lbl.textContent='管理費・修繕積立金（月額・円）※ローン返済額とは別';
+    else if(t==='paid')lbl.textContent='管理費・修繕積立金（月額・円）';
+    else lbl.textContent='月額住居費（円）';
+  }
   calcLoan();
 }
 function toggleSpLoan(){
