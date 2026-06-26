@@ -3262,37 +3262,50 @@ function setICloudStatus(msg,color){
 }
 async function icloudSave(){
   if(location.protocol==='file:'){alert('ローカルファイルとして開いているため、この機能は使えません。\nGitHub Pages（https://...）経由でアクセスしてご利用ください。');return;}
-  if(!window.showSaveFilePicker&&!window.showOpenFilePicker){alert('このブラウザはファイル書き込みに対応していません。\nMac: Chrome/Safari、iPad: iOS 17以上のSafariをお使いください。');return;}
   setICloudStatus('保存中...','var(--text3)');
-  try{
-    const data=JSON.stringify({slots:loadSlots(),savedAt:new Date().toISOString()});
-    // 既存ハンドルを試みる
-    let handle=await _idbFileHandle('get');
-    if(handle){
-      try{
-        const perm=await handle.requestPermission({mode:'readwrite'});
-        if(perm!=='granted')handle=null;
-      }catch{handle=null;}
-    }
-    if(!handle){
-      if(window.showSaveFilePicker){
-        handle=await window.showSaveFilePicker({suggestedName:'lifePlan_sync.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});
-      } else {
-        // iOS fallback: showOpenFilePicker で既存ファイルを選択して書き込む
-        [handle]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
-        const perm=await handle.requestPermission({mode:'readwrite'});
-        if(perm!=='granted'){setICloudStatus('書き込み権限が得られませんでした','var(--red)');return;}
+  const data=JSON.stringify({slots:loadSlots(),savedAt:new Date().toISOString()});
+  const ts=()=>new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  // File System Access API（Chrome・Safari 17.4以上）
+  if(window.showSaveFilePicker||window.showOpenFilePicker){
+    try{
+      let handle=await _idbFileHandle('get');
+      if(handle){
+        try{const perm=await handle.requestPermission({mode:'readwrite'});if(perm!=='granted')handle=null;}catch{handle=null;}
       }
-      await _idbFileHandle('put',handle);
+      if(!handle){
+        if(window.showSaveFilePicker){
+          handle=await window.showSaveFilePicker({suggestedName:'lifePlan_sync.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+        }else{
+          [handle]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+          const perm=await handle.requestPermission({mode:'readwrite'});
+          if(perm!=='granted'){setICloudStatus('書き込み権限が得られませんでした','var(--red)');return;}
+        }
+        await _idbFileHandle('put',handle);
+      }
+      const writable=await handle.createWritable();
+      await writable.write(data);
+      await writable.close();
+      setICloudStatus('✓ 保存完了 '+ts(),'var(--green)');
+      showToast('iCloud Driveに保存しました');
+      return;
+    }catch(e){
+      if(e.name==='AbortError'){setICloudStatus('','');return;}
+      // createWritable非対応（Safari 17.3以下）→ダウンロード方式にフォールバック
+      if(e.name!=='NotSupportedError'&&e.name!=='NotAllowedError'){
+        setICloudStatus('✗ 保存失敗: '+e.message,'var(--red)');return;
+      }
     }
-    const writable=await handle.createWritable();
-    await writable.write(data);
-    await writable.close();
-    const ts=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    setICloudStatus('✓ 保存完了 '+ts,'var(--green)');
-    showToast('iCloud Driveに保存しました');
+  }
+  // フォールバック：ダウンロード（Safari旧版・非対応ブラウザ）
+  try{
+    const blob=new Blob([data],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='lifePlan_sync.json';a.click();
+    URL.revokeObjectURL(url);
+    setICloudStatus('✓ ダウンロード完了 — iCloud Driveフォルダに移動してください '+ts(),'var(--amber)');
+    showToast('ファイルをダウンロードしました。iCloud Driveへ移動してください');
   }catch(e){
-    if(e.name==='AbortError'){setICloudStatus('','');return;}
     setICloudStatus('✗ 保存失敗: '+e.message,'var(--red)');
   }
 }
