@@ -3309,21 +3309,8 @@ async function icloudSave(){
     setICloudStatus('✗ 保存失敗: '+e.message,'var(--red)');
   }
 }
-async function icloudLoad(){
-  if(location.protocol==='file:'){alert('ローカルファイルとして開いているため、この機能は使えません。\nGitHub Pages（https://...）経由でアクセスしてご利用ください。');return;}
-  if(!window.showOpenFilePicker){alert('このブラウザはファイル選択に対応していません。');return;}
-  setICloudStatus('読み込み中...','var(--text3)');
+async function _applyICloudData(text){
   try{
-    let handle=await _idbFileHandle('get');
-    if(handle){
-      try{const perm=await handle.queryPermission({mode:'read'});if(perm!=='granted')handle=null;}catch{handle=null;}
-    }
-    if(!handle){
-      [handle]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
-      await _idbFileHandle('put',handle);
-    }
-    const file=await handle.getFile();
-    const text=await file.text();
     const data=JSON.parse(text);
     if(!data?.slots?.length){setICloudStatus('ファイルにデータがありません','var(--amber)');alert('ファイルにデータがありません');return;}
     const ts=new Date(data.savedAt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -3333,10 +3320,39 @@ async function icloudLoad(){
     try{renderSlotList2();}catch{}
     setICloudStatus('✓ 読込完了（'+ts+'保存）','var(--green)');
     showToast('iCloud Driveから読み込みました');
-  }catch(e){
-    if(e.name==='AbortError'){setICloudStatus('','');return;}
-    setICloudStatus('✗ 読込失敗: '+e.message,'var(--red)');
+  }catch(e){setICloudStatus('✗ 読込失敗: '+e.message,'var(--red)');}
+}
+async function icloudLoad(){
+  if(location.protocol==='file:'){alert('ローカルファイルとして開いているため、この機能は使えません。\nGitHub Pages（https://...）経由でアクセスしてご利用ください。');return;}
+  setICloudStatus('読み込み中...','var(--text3)');
+  // File System Access API が使える場合（Chrome・Safari 16.4以上）
+  if(window.showOpenFilePicker){
+    try{
+      let handle=await _idbFileHandle('get');
+      if(handle){
+        try{const perm=await handle.queryPermission({mode:'read'});if(perm!=='granted')handle=null;}catch{handle=null;}
+      }
+      if(!handle){
+        [handle]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+        await _idbFileHandle('put',handle);
+      }
+      const file=await handle.getFile();
+      await _applyICloudData(await file.text());
+      return;
+    }catch(e){
+      if(e.name==='AbortError'){setICloudStatus('','');return;}
+      // 失敗した場合は通常のファイル選択にフォールバック
+    }
   }
+  // フォールバック：通常の<input type="file">（全ブラウザ・全iOSで動作）
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json,application/json';
+  input.onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    await _applyICloudData(await f.text());
+  };
+  input.click();
+  setICloudStatus('ファイルを選択してください','var(--text3)');
 }
 
 // ── クラウド同期 ──
