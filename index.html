@@ -1525,17 +1525,12 @@ LIVING_IDS.forEach(id=>document.getElementById(id)?.addEventListener('input',upd
 // 雇用保険: 1.55% → 本人負担 0.6%
 // 所得税概算: 給与所得控除後の課税所得に税率適用（簡易）
 // 住民税: 課税所得 × 10% + 均等割 5000円（概算）
-function calcSocialInsurance(who){
-  const incomeEl=document.getElementById(who==='self'?'selfIncome':'spIncome');
-  const dispEl=document.getElementById(who==='self'?'selfInsEst':'spInsEst');
-  if(!incomeEl||!dispEl)return;
-  const grossIncome=+incomeEl.value||0;
-  if(grossIncome<=0){dispEl.textContent='';return;}
-
-  const age=who==='self'?getSelfAge():getSpAge();
-
-  // 企業型DC（選択制）の掛金は標準報酬月額・課税所得から控除される
-  const dcAnnual=getDcMonthly(who)*12;
+// 給与所得者の社会保険料・所得税・住民税を概算する純粋関数
+// grossIncome: 額面年収, age: 年齢, dcAnnual: 企業型DC(選択制)拠出額（標準報酬月額・課税所得を圧縮）,
+// idecoAnnual: iDeCo拠出額（課税所得のみ圧縮。社会保険料には影響しない）
+function computeDeduction(grossIncome,age,dcAnnual,idecoAnnual){
+  if(grossIncome<=0)return{healthIns:0,pensionIns:0,employIns:0,totalSocialIns:0,incomeTax:0,residentTax:0,takeHome:0};
+  dcAnnual=dcAnnual||0;idecoAnnual=idecoAnnual||0;
   const baseIncome=Math.max(0,grossIncome-dcAnnual);
 
   // 健康保険料（本人負担）
@@ -1563,8 +1558,8 @@ function calcSocialInsurance(who){
   else deduction=1950000;
   const kyuyoShotoku=baseIncome-deduction;
 
-  // 基礎控除 48万円、社会保険料控除
-  const taxableIncome=Math.max(0,kyuyoShotoku-480000-totalSocialIns);
+  // 基礎控除48万円・社会保険料控除・iDeCo拠出額（小規模企業共済等掛金控除、全額控除）
+  const taxableIncome=Math.max(0,kyuyoShotoku-480000-totalSocialIns-idecoAnnual);
 
   // 所得税（簡易）
   let incomeTax=0;
@@ -1581,10 +1576,42 @@ function calcSocialInsurance(who){
 
   const takeHome=Math.round(grossIncome-dcAnnual-totalSocialIns-incomeTax-residentTax);
 
+  return{healthIns,pensionIns,employIns,totalSocialIns,incomeTax,residentTax,takeHome};
+}
+// 投資ブロックから指定者・指定タイプの月額拠出を合計（企業型DC・iDeCoの「加入者」欄が対象）
+function getContribMonthly(who,type){
+  let sum=0;
+  document.querySelectorAll('#invList [id^="inv-"]').forEach(el=>{
+    const id=el.id.split('-')[1];
+    if((document.getElementById('vtype-'+id)?.value)===type){
+      const w=document.getElementById('vwho-'+id)?.value||'self';
+      if(w===who)sum+=+(document.getElementById('vmon-'+id)?.value||0);
+    }
+  });
+  return sum;
+}
+function calcSocialInsurance(who){
+  const incomeEl=document.getElementById(who==='self'?'selfIncome':'spIncome');
+  const dispEl=document.getElementById(who==='self'?'selfInsEst':'spInsEst');
+  if(!incomeEl||!dispEl)return;
+  const grossIncome=+incomeEl.value||0;
+  if(grossIncome<=0){dispEl.textContent='';return;}
+
+  const age=who==='self'?getSelfAge():getSpAge();
+
+  // 企業型DC（選択制）の掛金は標準報酬月額・課税所得から控除される
+  const dcAnnual=getDcMonthly(who)*12;
+  // iDeCoの掛金は課税所得のみ控除される（社会保険料には影響しない）
+  const idecoAnnual=getContribMonthly(who,'ideco')*12;
+
+  const{healthIns,pensionIns,employIns,totalSocialIns,incomeTax,residentTax,takeHome}=
+    computeDeduction(grossIncome,age,dcAnnual,idecoAnnual);
+
   dispEl.innerHTML=
     `社保: <b>${fmt(Math.round(totalSocialIns/10000)*10000)}円</b>/年`+
     `（健保${fmt(Math.round(healthIns/1000)*1000)}・厚年${fmt(Math.round(pensionIns/1000)*1000)}・雇用${fmt(employIns)}）`+
     (dcAnnual>0?`<br>企業型DC拠出: <b style="color:#6c5ce7">${fmt(dcAnnual)}円/年</b>（社保・税の対象外）`:'')+
+    (idecoAnnual>0?`<br>iDeCo拠出: <b style="color:var(--blue)">${fmt(idecoAnnual)}円/年</b>（課税所得から控除）`:'')+
     `<br>所得税: ${fmt(incomeTax)}円 ／ 住民税: ${fmt(residentTax)}円`+
     `<br>手取り概算: <b style="color:var(--green)">${fmt(takeHome)}円/年</b>`;
 }
@@ -2032,8 +2059,8 @@ function addInv(typeOrName='other', mo, rt, bal=0, stop){
       <div class="fld"><label>想定利回り（%）</label><input type="number" value="${rt}" step="0.5" id="vrt-${id}"></div>
       <div class="fld"><label>積立終了年齢</label><input type="number" value="${stop}" id="vstop-${id}"></div>
     </div>
-    <div class="fld" id="vwhoFld-${id}" style="display:${vtype==='dc'?'block':'none'};margin-top:8px">
-      <label>加入者（社会保険料に反映）</label>
+    <div class="fld" id="vwhoFld-${id}" style="display:${(vtype==='dc'||vtype==='ideco')?'block':'none'};margin-top:8px">
+      <label>加入者（社会保険料・税金の試算に反映）</label>
       <select id="vwho-${id}" onchange="recalcSocial()" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);font-family:inherit">
         <option value="self">本人</option>
         <option value="sp">配偶者</option>
@@ -2058,23 +2085,13 @@ function changeInvType(id){
   if(stopEl)stopEl.value=p.stop;
   const noteEl=document.getElementById('vnote-'+id);
   if(noteEl)noteEl.textContent=p.note;
-  // 企業型DCのときのみ「加入者」欄を表示し、社会保険料を再計算
+  // 企業型DC・iDeCoのときのみ「加入者」欄を表示し、社会保険料・税金を再計算
   const whoFld=document.getElementById('vwhoFld-'+id);
-  if(whoFld)whoFld.style.display=vtype==='dc'?'block':'none';
+  if(whoFld)whoFld.style.display=(vtype==='dc'||vtype==='ideco')?'block':'none';
   recalcSocial();
 }
 // 投資ブロックから指定者の企業型DC（選択制）月額拠出を合計
-function getDcMonthly(who){
-  let sum=0;
-  document.querySelectorAll('#invList [id^="inv-"]').forEach(el=>{
-    const id=el.id.split('-')[1];
-    if((document.getElementById('vtype-'+id)?.value)==='dc'){
-      const w=document.getElementById('vwho-'+id)?.value||'self';
-      if(w===who)sum+=+(document.getElementById('vmon-'+id)?.value||0);
-    }
-  });
-  return sum;
-}
+function getDcMonthly(who){return getContribMonthly(who,'dc');}
 function recalcSocial(){calcSocialInsurance('self');calcSocialInsurance('sp');}
 function delRow(type,id){const el=document.getElementById(type+'-'+id);if(el)el.remove();}
 function updateInsTag(id){
@@ -2124,7 +2141,8 @@ function getInv(){
       monthly:+(document.getElementById('vmon-'+id)?.value||0),
       rate:+(document.getElementById('vrt-'+id)?.value||0)/100,
       balance:+(document.getElementById('vbal-'+id)?.value||0),
-      stopAge:+(document.getElementById('vstop-'+id)?.value||65)
+      stopAge:+(document.getElementById('vstop-'+id)?.value||65),
+      who:document.getElementById('vwho-'+id)?.value||'self'
     });
   });return rows;
 }
@@ -2215,6 +2233,17 @@ function runSim(){
     const selfCurAge=selfAge+y,spCurAge=spAge+y;
     if(y>0)cumInfl*=(1+inflation);
     const selfRetired=selfCurAge>=selfRetireAge,spRetired=spCurAge>=spRetireAge;
+    // 社会保険料・所得税・住民税は給与部分（副業・退職金・年金を除く）にのみ課される
+    const selfSalary=selfRetired?0:selfIncome*Math.pow(1+selfGrowth,y);
+    const spSalary=spRetired?0:spIncome*Math.pow(1+spGrowth,y);
+    const selfDcAnnual=selfRetired?0:invRows.filter(r=>r.type==='dc'&&r.who==='self'&&selfCurAge<r.stopAge).reduce((s,r)=>s+r.monthly*12,0);
+    const spDcAnnual=spRetired?0:invRows.filter(r=>r.type==='dc'&&r.who==='sp'&&spCurAge<r.stopAge).reduce((s,r)=>s+r.monthly*12,0);
+    const selfIdecoAnnual=selfRetired?0:invRows.filter(r=>r.type==='ideco'&&r.who==='self'&&selfCurAge<r.stopAge).reduce((s,r)=>s+r.monthly*12,0);
+    const spIdecoAnnual=spRetired?0:invRows.filter(r=>r.type==='ideco'&&r.who==='sp'&&spCurAge<r.stopAge).reduce((s,r)=>s+r.monthly*12,0);
+    const selfDeduct=computeDeduction(selfSalary,selfCurAge,selfDcAnnual,selfIdecoAnnual);
+    const spDeduct=computeDeduction(spSalary,spCurAge,spDcAnnual,spIdecoAnnual);
+    const yearSocialIns=selfDeduct.totalSocialIns+spDeduct.totalSocialIns;
+    const yearIncTax=selfDeduct.incomeTax+spDeduct.incomeTax+selfDeduct.residentTax+spDeduct.residentTax;
     let selfYrInc=selfRetired?0:(selfIncome*Math.pow(1+selfGrowth,y)+selfSide);
     let spYrInc=spRetired?0:(spIncome*Math.pow(1+spGrowth,y)+spSide);
     if(selfCurAge===selfRetireAge)selfYrInc+=selfSeverance;
@@ -2293,14 +2322,14 @@ function runSim(){
       return s;
     },0);
     const yearExp=livingInflated+housingCost+eduCost+lifeEventCost+loanExtraAnnual;
-    const balance=yearIncome+surrenderIncome-yearExp-yearIns-yearInvContrib;
+    const balance=yearIncome+surrenderIncome-yearExp-yearIns-yearInvContrib-yearSocialIns-yearIncTax;
     savings=savings*(1+savingsRate)+balance;
     const totalAssets=savings+totalInvBalance;
     const realAssets=totalAssets/cumInfl;
     if(totalAssets<0&&negYear===null)negYear=selfCurAge;
     const pensionY=(selfCurAge>=selfPensionStart?selfPensionM*12:0)+(spCurAge>=spPensionStart?spPensionM*12:0);
     const childInfo=childCurrentAges.map((ca,ci)=>{const age=ca+y;const uy=getUnivYearsForChild(ci);const syi=(planStartYear+y)-childElemEntryYears[ci];return {age,inUniv:syi>=12&&syi<12+uy};});
-    simData.push({year:getPlanYM().y+y,selfAge:selfCurAge,spAge:spCurAge,childInfo,income:yearIncome,surrenderIncome,expense:yearExp-housingCost,living:livingInflated,eduCost,housingCost,otherExp:lifeEventCost+loanExtraAnnual,ins:yearIns,invContrib:yearInvContrib,balance,savings,invBalance:totalInvBalance,totalAssets,realAssets,selfRetired,spRetired,cumInfl,invSnap:[...invBalances],pensionY,retireOtherY,inSecondLife,needsLiving:livingInflated+housingCost});
+    simData.push({year:getPlanYM().y+y,selfAge:selfCurAge,spAge:spCurAge,childInfo,income:yearIncome,surrenderIncome,expense:yearExp-housingCost,living:livingInflated,eduCost,housingCost,otherExp:lifeEventCost+loanExtraAnnual,ins:yearIns,invContrib:yearInvContrib,socialIns:yearSocialIns,taxDeduct:yearIncTax,balance,savings,invBalance:totalInvBalance,totalAssets,realAssets,selfRetired,spRetired,cumInfl,invSnap:[...invBalances],pensionY,retireOtherY,inSecondLife,needsLiving:livingInflated+housingCost});
   }
 
   document.getElementById('placeholder').style.display='none';
@@ -2346,6 +2375,8 @@ function renderMetrics(negYear,endAge){
 
 // 支出項目の色・ラベル定義
 const EXP_CATS=[
+  {key:'socialIns',label:'社会保険料',color:'#5d6d7e'},
+  {key:'taxDeduct',label:'所得税・住民税',color:'#95a5a6'},
   {key:'living',  label:'生活費',  color:'#c0392b'},
   {key:'housing', label:'住居費',  color:'#e67e22'},
   {key:'eduCost', label:'教育費',  color:'#8e44ad'},
@@ -2403,7 +2434,7 @@ function renderTable(){
   let head='<tr><th>年</th><th>本人</th>';
   if(hasSpouse)head+='<th>配偶者</th>';
   childNames.forEach(nm=>head+=`<th>${nm}</th>`);
-  head+='<th>収入</th><th>一時所得</th><th>生活費</th><th>住居費</th><th>保険料</th><th>投資積立</th><th>収支</th><th>預貯金</th><th>投資残高</th><th>総資産</th><th>実質総資産</th></tr>';
+  head+='<th>収入</th><th>一時所得</th><th>社会保険料</th><th>所得税・住民税</th><th>生活費</th><th>住居費</th><th>保険料</th><th>投資積立</th><th>収支</th><th>預貯金</th><th>投資残高</th><th>総資産</th><th>実質総資産</th></tr>';
   document.getElementById('cfHead').innerHTML=head;
   // 大学在学が存在すれば凡例を表示
   const anyUniv=rows.some(d=>(d.childInfo||[]).some(c=>c.inUniv));
@@ -2423,6 +2454,8 @@ function renderTable(){
     ${famCells(d)}
     <td>${m(d.income)}</td>
     <td style="color:${d.surrenderIncome>0?'#b06a00':'var(--text3)'}">${d.surrenderIncome>0?m(d.surrenderIncome):'-'}</td>
+    <td style="color:#c0392b">${d.socialIns>0?'－'+m(d.socialIns):'-'}</td>
+    <td style="color:#c0392b">${d.taxDeduct>0?'－'+m(d.taxDeduct):'-'}</td>
     <td>${m(d.expense)}</td>
     <td>${m(d.housingCost)}</td>
     <td>${m(d.ins)}</td>
