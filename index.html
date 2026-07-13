@@ -362,7 +362,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
     <div class="fld"><label>作成日（入力日）</label><input type="date" id="planDate" oninput="updateAgeDisp('self');updateAgeDisp('sp');calcLoan()"></div>
   </div>
   <div class="g3" style="margin-bottom:8px">
-    <div class="fld"><label>満了年齢（歳）</label><input type="number" id="endAge" value="100" min="60" max="100"></div>
+    <div class="fld"><label>満了年齢（歳）</label><input type="number" id="endAge" value="100" min="60" max="120" readonly style="background:var(--surface2);color:var(--text2)" title="「セカンドライフ」欄の想定寿命（本人・配偶者）のうち長い方から自動計算されます"></div>
     <div class="fld"><label>インフレ率（%）</label><input type="number" id="inflationRate" value="1.0" step="0.1" min="0" max="10"></div>
     <div class="fld"><label>子供の人数</label><select id="children" onchange="updateChildInputs()"><option value="0">なし</option><option value="1">1人</option><option value="2" selected>2人</option><option value="3">3人</option><option value="4">4人</option><option value="5">5人</option></select></div>
   </div>
@@ -510,9 +510,22 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   </div>
   <div class="g2" style="margin-bottom:10px">
     <div class="fld"><label>老後その他収入（月額・円）</label><input type="number" id="retireOtherIncome" value="0" step="10000"></div>
-    <div class="fld"><label>想定寿命（本人・歳）</label><input type="number" id="secondLifeEndAge" value="100" step="1"></div>
   </div>
-  <p class="note">※ 老後の月額生活費は「生活費」欄、公的年金は「年金」欄の数値を使用します。<br>ゆとり上乗せ額＝旅行・趣味などゆとり費用の月額。老後その他収入＝個人年金・家賃収入などの月額。</p>
+  <div class="g2" style="margin-bottom:10px">
+    <div class="fld"><label>想定寿命（本人・歳）</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" id="secondLifeEndAge" value="100" step="1" min="0" max="120" oninput="syncEndAge()">
+        <button type="button" class="add-btn" style="white-space:nowrap;padding:6px 8px;font-size:11px" onclick="applyAvgLifespan('self')">平均寿命</button>
+      </div>
+    </div>
+    <div class="fld"><label>想定寿命（配偶者・歳）</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" id="spSecondLifeEndAge" value="100" step="1" min="0" max="120" oninput="syncEndAge()">
+        <button type="button" class="add-btn" style="white-space:nowrap;padding:6px 8px;font-size:11px" onclick="applyAvgLifespan('sp')">平均寿命</button>
+      </div>
+    </div>
+  </div>
+  <p class="note">※ 老後の月額生活費は「生活費」欄、公的年金は「年金」欄の数値を使用します。<br>ゆとり上乗せ額＝旅行・趣味などゆとり費用の月額。老後その他収入＝個人年金・家賃収入などの月額。<br>「平均寿命」ボタンは性別に応じた目安（男性81歳・女性87歳）を反映します。「基本設定」の満了年齢は、本人・配偶者どちらか長い方の想定寿命に合わせて自動計算されます。</p>
 </div>
 
 <!-- 住居・ローン -->
@@ -1051,6 +1064,64 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <script>
+// ── 金額入力欄のカンマ区切り表示 ──────────────────────────────
+// 対象は「円・USDの金額」フィールドのみ（年齢・年・月・％・件数などは対象外）
+(function(){
+  const MONEY_IDS=new Set([
+    'savings','otherIncome','childAllowanceAuto','cityTax','fixedTax','monthlyRent',
+    'selfIncome','selfSideIncome','selfSeverance','selfAvgSalary','selfPensionAmt','selfIdeco','selfDc','selfLoanAmt','loanMonthly',
+    'spIncome','spSideIncome','spSeverance','spAvgSalary','spPensionAmt','spIdeco','spDc','spLoanAmt','spLoanMonthly',
+    'cFood','cDaily','cDining','cElec','cGas','cWater','cComm','cTransport','cCar','cParking','cLeisure','cSocial','cAllowance','cTravel','cMedical','cClothing','cOther','cSimple',
+    'retireLiving','retireExtra','retireOtherIncome',
+    'reqSelfLiving','reqSelfWidowPension','reqSelfFuneral','reqSelfMortgage','reqSelfExtra',
+    'reqSpLiving','reqSpWidowPension','reqSpFuneral','reqSpMortgage','reqSpExtra'
+  ]);
+  const MONEY_PREFIXES=['iprem-','ideath-','isurrval-','iusd-death-','iusd-sv-','vbal-','vmon-','lexBal-','lexMonthly-','levCost-','marriage_amt_','remitance_amt_','remitance_init_'];
+  function isMoneyId(id){
+    if(!id)return false;
+    if(MONEY_IDS.has(id))return true;
+    if(MONEY_PREFIXES.some(p=>id.startsWith(p)))return true;
+    if(/^edu_(kinder|elem|mid|high)_(pub|pri)_\d+$/.test(id))return true;
+    if(/^edu_univ_cost_\d+$/.test(id))return true;
+    if(/^edu_extra_\d+$/.test(id))return true;
+    return false;
+  }
+  const digitsOnly=s=>String(s==null?'':s).replace(/[^\d]/g,'');
+  const proto=HTMLInputElement.prototype;
+  const nativeDesc=Object.getOwnPropertyDescriptor(proto,'value');
+  Object.defineProperty(proto,'value',{
+    configurable:true,
+    get(){
+      const raw=nativeDesc.get.call(this);
+      if(isMoneyId(this.id))return raw.replace(/,/g,'');
+      return raw;
+    },
+    set(v){
+      if(isMoneyId(this.id)){
+        if(this.type==='number'){this.type='text';this.setAttribute('inputmode','decimal');}
+        const d=digitsOnly(v);
+        nativeDesc.set.call(this,d===''?'':Number(d).toLocaleString('en-US'));
+      }else{
+        nativeDesc.set.call(this,v);
+      }
+    }
+  });
+  // ページ内の既存フィールド・後から追加されるフィールドの両方に適用
+  function enhance(root){
+    (root||document).querySelectorAll('input').forEach(el=>{
+      if(el.id&&isMoneyId(el.id)&&el.dataset.fmtd!=='1'){
+        el.dataset.fmtd='1';
+        el.value=el.value; // getter→setterを経由させ整形＋type変換
+        el.addEventListener('blur',()=>{el.value=el.value;});
+      }
+    });
+  }
+  window.enhanceMoneyInputs=enhance;
+  document.addEventListener('DOMContentLoaded',()=>enhance(document));
+  new MutationObserver(muts=>{
+    for(const m of muts){if(m.addedNodes.length){enhance(document);return;}}
+  }).observe(document.body,{childList:true,subtree:true});
+})();
 let chartInst=null,insCount=0,invCount=0,simData=[];
 let usdJpyRate=150;
 async function fetchTTM(){
@@ -1165,6 +1236,26 @@ function updateAgeDisp(who){
   const hasCust=!!document.getElementById(byId)?.value;
   const age=who==='self'?getSelfAge():getSpAge();
   document.getElementById(who+'AgeDisp').textContent=hasCust?'現在 '+age+'歳':'';
+  syncEndAge();
+}
+// 性別に応じた平均寿命の目安（男性81歳・女性87歳）を反映
+function applyAvgLifespan(who){
+  const gender=document.getElementById(who==='self'?'selfGender':'spGender')?.value||'male';
+  const avg=gender==='female'?87:81;
+  const id=who==='self'?'secondLifeEndAge':'spSecondLifeEndAge';
+  const el=document.getElementById(id);
+  if(el)el.value=avg;
+  syncEndAge();
+}
+// 満了年齢（本人の年齢軸）＝本人・配偶者どちらか長い方の想定寿命から自動計算
+function syncEndAge(){
+  const selfAge=getSelfAge(),spAge=getSpAge();
+  const selfLife=+document.getElementById('secondLifeEndAge')?.value||100;
+  const spLife=+document.getElementById('spSecondLifeEndAge')?.value||100;
+  const spLifeInSelfAge=selfAge+(spLife-spAge);
+  const derived=Math.max(selfLife,spLifeInSelfAge,selfAge+1);
+  const el=document.getElementById('endAge');
+  if(el)el.value=Math.min(120,Math.round(derived));
 }
 // ── 教育費データ（年額・円） ──
 const UNIV_PRESETS={
@@ -1252,8 +1343,10 @@ function rebuildEduPanels(n){
     s.univ_cost=document.getElementById('edu_univ_cost_'+i)?.value||UNIV_PRESETS.shiritsu_bunkei.cost;
     s.univ_years=document.getElementById('edu_univ_years_'+i)?.value||4;
     s.extra=document.getElementById('edu_extra_'+i)?.value||0;
+    s.extra_freq=document.getElementById('edu_extra_freq_'+i)?.value||'year';
     s.remit_flag=document.getElementById('remitance_flag_'+i)?.value||'0';
     s.remit_amt=document.getElementById('remitance_amt_'+i)?.value||1200000;
+    s.remit_amt_freq=document.getElementById('remitance_amt_freq_'+i)?.value||'year';
     s.remit_init=document.getElementById('remitance_init_'+i)?.value||500000;
     s.marriage_amt=document.getElementById('marriage_amt_'+i)?.value||0;
     s.marriage_age=document.getElementById('marriage_age_'+i)?.value||30;
@@ -1295,14 +1388,34 @@ function rebuildEduPanels(n){
             </td>
             <td><input class="edu-input" id="edu_univ_cost_${i}" value="${s.univ_cost}" oninput="updateEduPreview(${i})">
                 <input type="hidden" id="edu_univ_years_${i}" value="${s.univ_years}"></td></tr>
-          <tr><td>習い事・塾/年</td><td>小中高</td><td colspan="2"><input class="edu-input" style="width:100px" id="edu_extra_${i}" value="${s.extra}" oninput="updateEduPreview(${i})"></td><td><span style="font-size:10px;color:var(--text3)">追加費用</span></td></tr>
+          <tr><td>習い事・塾</td><td>小中高</td>
+            <td colspan="2" style="text-align:left;padding:3px 6px">
+              <div style="display:flex;gap:6px;align-items:center">
+                <input class="edu-input" style="width:100px" id="edu_extra_${i}" value="${s.extra}" oninput="updateEduPreview(${i})">
+                <select id="edu_extra_freq_${i}" style="font-size:11px" onchange="updateEduPreview(${i})">
+                  <option value="year"${(s.extra_freq||'year')==='year'?' selected':''}>円／年</option>
+                  <option value="month"${s.extra_freq==='month'?' selected':''}>円／月</option>
+                </select>
+              </div>
+              <div id="eduExtraPrev_${i}" style="font-size:10px;color:var(--text3);margin-top:2px"></div>
+            </td>
+            <td><span style="font-size:10px;color:var(--text3)">追加費用</span></td></tr>
         </tbody>
       </table>
       <div style="margin-top:10px;background:var(--surface2);border-radius:var(--radius);padding:10px">
         <div style="font-size:12px;font-weight:700;margin-bottom:8px">大学進学中の仕送り</div>
         <div class="g3">
           <div class="fld"><label>有無</label><select id="remitance_flag_${i}" onchange="updateEduPreview(${i})"><option value="0"${s.remit_flag==='0'?' selected':''}>なし（自宅）</option><option value="1"${s.remit_flag==='1'?' selected':''}>あり（下宿）</option></select></div>
-          <div class="fld"><label>年間仕送り（円）</label><input type="number" id="remitance_amt_${i}" value="${s.remit_amt}" step="100000" oninput="updateEduPreview(${i})"></div>
+          <div class="fld"><label>仕送り額</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="number" id="remitance_amt_${i}" value="${s.remit_amt}" step="10000" oninput="updateEduPreview(${i})">
+              <select id="remitance_amt_freq_${i}" style="font-size:11px" onchange="updateEduPreview(${i})">
+                <option value="year"${(s.remit_amt_freq||'year')==='year'?' selected':''}>円／年</option>
+                <option value="month"${s.remit_amt_freq==='month'?' selected':''}>円／月</option>
+              </select>
+            </div>
+            <div id="remitAmtPrev_${i}" style="font-size:10px;color:var(--text3);margin-top:2px"></div>
+          </div>
           <div class="fld"><label>入学金・引越（円）</label><input type="number" id="remitance_init_${i}" value="${s.remit_init}" step="100000" oninput="updateEduPreview(${i})"></div>
         </div>
       </div>
@@ -1353,17 +1466,34 @@ function getEduCostForChild(ci,stage){
   return +document.getElementById('edu_'+stage+'_'+sel+'_'+ci)?.value||0;
 }
 function getUnivYearsForChild(ci){return +document.getElementById('edu_univ_years_'+ci)?.value||4;}
-function getEduExtraForChild(ci){return +document.getElementById('edu_extra_'+ci)?.value||0;}
+function getEduExtraForChild(ci){
+  const amt=+document.getElementById('edu_extra_'+ci)?.value||0;
+  const freq=document.getElementById('edu_extra_freq_'+ci)?.value||'year';
+  return freq==='month'?amt*12:amt;
+}
+function getRemitAmtForChild(ci){
+  const amt=+document.getElementById('remitance_amt_'+ci)?.value||0;
+  const freq=document.getElementById('remitance_amt_freq_'+ci)?.value||'year';
+  return freq==='month'?amt*12:amt;
+}
 function updateEduPreview(ci){
   const stageYrs={kinder:3,elem:6,mid:3,high:3};
   let total=['kinder','elem','mid','high'].reduce((s,st)=>s+getEduCostForChild(ci,st)*stageYrs[st],0);
   const uy=getUnivYearsForChild(ci);
-  total+=getEduCostForChild(ci,'univ')*uy+getEduExtraForChild(ci)*9;
+  const extraAnnual=getEduExtraForChild(ci);
+  total+=getEduCostForChild(ci,'univ')*uy+extraAnnual*9;
   const rf=document.getElementById('remitance_flag_'+ci)?.value==='1';
-  const remit=rf?(+document.getElementById('remitance_amt_'+ci)?.value*uy)+(+document.getElementById('remitance_init_'+ci)?.value):0;
+  const remitAnnual=getRemitAmtForChild(ci);
+  const remit=rf?(remitAnnual*uy)+(+document.getElementById('remitance_init_'+ci)?.value):0;
   const marriage=+document.getElementById('marriage_amt_'+ci)?.value||0;
   const el=document.getElementById('eduCostPreview_'+ci);
   if(el)el.textContent='1人あたり総額目安: 約'+fmt(Math.round(total+remit+marriage))+'円'+(marriage>0?'（結婚援助 '+fmt(marriage)+'円含む）':'');
+  const extraFreq=document.getElementById('edu_extra_freq_'+ci)?.value||'year';
+  const extraPrevEl=document.getElementById('eduExtraPrev_'+ci);
+  if(extraPrevEl)extraPrevEl.textContent=extraFreq==='month'?('月額 '+fmt(+document.getElementById('edu_extra_'+ci)?.value||0)+'円 → 年換算 '+fmt(extraAnnual)+'円'):'';
+  const remitFreq=document.getElementById('remitance_amt_freq_'+ci)?.value||'year';
+  const remitPrevEl=document.getElementById('remitAmtPrev_'+ci);
+  if(remitPrevEl)remitPrevEl.textContent=remitFreq==='month'?('月額 '+fmt(+document.getElementById('remitance_amt_'+ci)?.value||0)+'円 → 年換算 '+fmt(remitAnnual)+'円'):'';
 }
 
 function toggleHousing(){
@@ -2283,7 +2413,7 @@ function runSim(){
         eduCost+=getEduCostForChild(ci,'univ')*cumInfl;
         const rf=document.getElementById('remitance_flag_'+ci)?.value==='1';
         if(rf){
-          eduCost+=(+document.getElementById('remitance_amt_'+ci)?.value||0)*cumInfl;
+          eduCost+=getRemitAmtForChild(ci)*cumInfl;
           if(sy===12)eduCost+=(+document.getElementById('remitance_init_'+ci)?.value||0)*cumInfl;
         }
       }
@@ -2342,7 +2472,7 @@ function runSim(){
   renderInvSummary(invRows);
   renderInsSummary(insRows,selfAge);
   renderReq(selfAge,spAge,insRows);
-  renderSecondLife(secondLifeAge,+document.getElementById('secondLifeEndAge')?.value||90,endAge);
+  renderSecondLife(secondLifeAge,endAge,endAge);
   const wb=document.getElementById('warnBox');
   if(negYear){wb.style.display='block';wb.innerHTML='⚠　<strong>'+negYear+'歳頃</strong>に総資産がマイナスになる見込みです。収支の見直しをご検討ください。';}
   else wb.style.display='none';
@@ -2399,6 +2529,9 @@ function renderChart(){
   EXP_CATS.forEach(c=>{legendHTML+=`<div class="legend-item"><div class="legend-dot" style="background:${c.color}"></div>${c.label}</div>`;});
   document.getElementById('legendBox').innerHTML=legendHTML;
   const axCb=v=>{const a=Math.abs(v);if(a>=10000){const o=(a/10000).toFixed(1).replace(/\.0$/,'');return (v<0?'-':'')+o+'億';}return fmt(v)+'万';};
+  // 総資産（右軸）は0を中央に、上限・下限を絶対値の大きい方に揃えて対称にする
+  const assetVals=totalAssets.concat(realAssets);
+  const assetAbsMax=Math.max(1,...assetVals.map(v=>Math.abs(v)))*1.1;
   const ctx=document.getElementById('mainChart').getContext('2d');
   // 支出項目を積み上げbarで生成
   const expDatasets=EXP_CATS.map(c=>({
@@ -2416,7 +2549,7 @@ function renderChart(){
     scales:{
       x:{stacked:true,title:{display:true,text:'本人の年齢',font:{size:13,weight:'bold'}},grid:{display:false},ticks:{autoSkip:true,maxTicksLimit:15,font:{size:13}}},
       y:{position:'left',stacked:true,beginAtZero:true,title:{display:true,text:'収入・支出（万円）',font:{size:13,weight:'bold'}},grid:{color:'rgba(0,0,0,0.06)',drawTicks:false},border:{display:false},ticks:{font:{size:13},callback:axCb}},
-      y1:{position:'right',title:{display:true,text:'総資産（万円）',font:{size:13,weight:'bold'}},grid:{drawOnChartArea:false},ticks:{font:{size:13},callback:axCb}}
+      y1:{position:'right',min:-assetAbsMax,max:assetAbsMax,title:{display:true,text:'総資産（万円）',font:{size:13,weight:'bold'}},grid:{drawOnChartArea:false},ticks:{font:{size:13},callback:axCb}}
     },
     plugins:{legend:{display:false},tooltip:{titleFont:{size:14},bodyFont:{size:13},callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)+'万円'}}}}});
 }
@@ -3522,7 +3655,7 @@ function buildPdfInputSummary(){
     const cn=gv('childName-'+i)||childLabels[i];
     const preset=selOf('eduPreset_'+i);
     const univ=selOf('edu_univ_type_'+i);
-    const remit=gv('remitance_flag_'+i)==='1'?`仕送りあり（年${yen(nv('remitance_amt_'+i))}）`:'仕送りなし';
+    const remit=gv('remitance_flag_'+i)==='1'?`仕送りあり（年${yen(getRemitAmtForChild(i))}）`:'仕送りなし';
     const mAmt=nv('marriage_amt_'+i),mAge=nv('marriage_age_'+i);
     const marriage=mAmt>0?`結婚援助 ${yen(mAmt)}（子${mAge}歳時）`:'結婚援助なし';
     eduRows+=row(cn,`${preset} ／ 大学：${univ} ／ ${remit} ／ ${marriage}`);
@@ -3566,7 +3699,7 @@ function buildPdfInputSummary(){
   if(!evRows)evRows=row('登録','ライフイベント・その他借入なし');
 
   // 7. セカンドライフ
-  let slRows=row('セカンドライフ開始',gv('secondLifeAge')+'歳　〜　想定寿命 '+gv('secondLifeEndAge')+'歳');
+  let slRows=row('セカンドライフ開始',gv('secondLifeAge')+'歳　〜　想定寿命 本人'+gv('secondLifeEndAge')+'歳／配偶者'+gv('spSecondLifeEndAge')+'歳');
   slRows+=row('ゆとり上乗せ（月額）',yen(nv('retireExtra')));
   slRows+=row('老後その他収入（月額）',yen(nv('retireOtherIncome')));
 
