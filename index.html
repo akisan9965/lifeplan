@@ -425,7 +425,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   <div class="sec-sub" style="margin-top:14px">📅 予定している大きな出費（ライフイベント）</div>
   <div id="lifeEventList"></div>
   <button class="add-btn" onclick="addLifeEvent()">＋ ライフイベントを追加</button>
-  <p class="note" style="margin-top:8px">※ 車購入・リフォーム・旅行・進学費用など任意の出費を年単位で入力してください。</p>
+  <p class="note" style="margin-top:8px">※ 車購入・リフォーム・旅行・進学費用など任意の出費を年単位で入力してください。<br>※ 自動車保険など毎年継続して発生する支出は、種別を「継続」にして支払い期間（開始〜終了年齢）と年間費用を入力してください。</p>
 </div>
 
 <!-- 生活費 -->
@@ -438,6 +438,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
       <option value="simple">簡易入力（合計のみ）</option>
     </select>
   </div>
+
+  <div class="fld" style="margin-bottom:4px"><label>💰 毎月の貯金額（意識的な積立・円）</label><input type="number" id="cSavings" value="0" step="5000" oninput="updateLivingTotal()"></div>
+  <p class="note" style="margin-bottom:12px">※ 先取り貯金など、生活費とは別に毎月意識的に取り分けている金額があれば入力してください。月額合計・年間支出に加算されます（詳細・簡易どちらの入力方法でも反映されます）。</p>
 
   <div id="livingSimpleBox" style="display:none">
     <div class="fld"><label>月額生活費の合計（円）</label><input type="number" id="cSimple" value="280000" step="10000" oninput="updateLivingTotal()"></div>
@@ -1071,12 +1074,12 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
     'savings','otherIncome','childAllowanceAuto','cityTax','fixedTax','monthlyRent',
     'selfIncome','selfSideIncome','selfSeverance','selfAvgSalary','selfPensionAmt','selfIdeco','selfDc','selfLoanAmt','loanMonthly',
     'spIncome','spSideIncome','spSeverance','spAvgSalary','spPensionAmt','spIdeco','spDc','spLoanAmt','spLoanMonthly',
-    'cFood','cDaily','cDining','cElec','cGas','cWater','cComm','cTransport','cCar','cParking','cLeisure','cSocial','cAllowance','cTravel','cMedical','cClothing','cOther','cSimple',
+    'cFood','cDaily','cDining','cElec','cGas','cWater','cComm','cTransport','cCar','cParking','cLeisure','cSocial','cAllowance','cTravel','cMedical','cClothing','cOther','cSimple','cSavings',
     'retireLiving','retireExtra','retireOtherIncome',
     'reqSelfLiving','reqSelfWidowPension','reqSelfFuneral','reqSelfMortgage','reqSelfExtra',
     'reqSpLiving','reqSpWidowPension','reqSpFuneral','reqSpMortgage','reqSpExtra'
   ]);
-  const MONEY_PREFIXES=['iprem-','ideath-','isurrval-','iusd-death-','iusd-sv-','vbal-','vmon-','lexBal-','lexMonthly-','levCost-','marriage_amt_','remitance_amt_','remitance_init_'];
+  const MONEY_PREFIXES=['iprem-','ideath-','isurrval-','iusd-death-','iusd-sv-','vbal-','vmon-','lexBal-','lexMonthly-','levCost-','levAnnualCost-','marriage_amt_','remitance_amt_','remitance_init_'];
   function isMoneyId(id){
     if(!id)return false;
     if(MONEY_IDS.has(id))return true;
@@ -1630,9 +1633,10 @@ function calcLoan(){
 const LIVING_IDS=['cFood','cDaily','cDining','cElec','cGas','cWater','cComm','cTransport','cCar','cParking','cLeisure','cSocial','cAllowance','cTravel','cMedical','cClothing','cOther'];
 // 生活費の月額合計を取得（入力方法に応じて）
 function getMonthlyLiving(){
+  const savings=+document.getElementById('cSavings')?.value||0;
   if(document.getElementById('livingMode')?.value==='simple')
-    return +document.getElementById('cSimple')?.value||0;
-  return LIVING_IDS.reduce((s,id)=>s+(+document.getElementById(id)?.value||0),0);
+    return (+document.getElementById('cSimple')?.value||0)+savings;
+  return LIVING_IDS.reduce((s,id)=>s+(+document.getElementById(id)?.value||0),0)+savings;
 }
 function updateLivingTotal(){
   const monthly=getMonthlyLiving();
@@ -1883,23 +1887,56 @@ function addLifeEvent(){
       <span style="font-size:12px;font-weight:700;color:var(--text2)">イベント #${id+1}</span>
       <button class="del-btn" onclick="document.getElementById('lifeEvent-${id}').remove()">✕</button>
     </div>
-    <div class="g3">
+    <div class="g2" style="margin-bottom:8px">
       <div class="fld"><label>イベント名</label><input type="text" id="levName-${id}" value="車の買い替え" placeholder="例：リフォーム"></div>
+      <div class="fld"><label>種別</label>
+        <select id="levType-${id}" onchange="toggleLifeEventType(${id})">
+          <option value="once">単発（特定の年齢で1回）</option>
+          <option value="recurring">継続（毎年発生：自動車保険など）</option>
+        </select>
+      </div>
+    </div>
+    <div class="g3" id="levOnceBox-${id}">
       <div class="fld"><label>本人年齢（歳）</label><input type="number" id="levAge-${id}" value="45" min="20" max="90"></div>
       <div class="fld"><label>費用（円）</label><input type="number" id="levCost-${id}" value="3000000" step="100000"></div>
+    </div>
+    <div class="g3" id="levRecurBox-${id}" style="display:none">
+      <div class="fld"><label>開始年齢（歳）</label><input type="number" id="levStartAge-${id}" value="30" min="20" max="99"></div>
+      <div class="fld"><label>終了年齢（歳）＝支払い期間</label><input type="number" id="levEndAge-${id}" value="80" min="20" max="99"></div>
+      <div class="fld"><label>年間費用（円）</label><input type="number" id="levAnnualCost-${id}" value="60000" step="10000"></div>
     </div>`;
   document.getElementById('lifeEventList').appendChild(div);
+}
+
+function toggleLifeEventType(id){
+  const recurring=document.getElementById('levType-'+id)?.value==='recurring';
+  const onceBox=document.getElementById('levOnceBox-'+id);
+  const recurBox=document.getElementById('levRecurBox-'+id);
+  if(onceBox)onceBox.style.display=recurring?'none':'grid';
+  if(recurBox)recurBox.style.display=recurring?'grid':'none';
 }
 
 function getLifeEvents(){
   const list=[];
   document.querySelectorAll('[id^="lifeEvent-"]').forEach(div=>{
     const id=div.id.replace('lifeEvent-','');
-    list.push({
-      name:document.getElementById('levName-'+id)?.value||'イベント',
-      age:+document.getElementById('levAge-'+id)?.value||45,
-      cost:+document.getElementById('levCost-'+id)?.value||0,
-    });
+    const type=document.getElementById('levType-'+id)?.value||'once';
+    if(type==='recurring'){
+      list.push({
+        name:document.getElementById('levName-'+id)?.value||'イベント',
+        type:'recurring',
+        startAge:+document.getElementById('levStartAge-'+id)?.value||0,
+        endAge:+document.getElementById('levEndAge-'+id)?.value||0,
+        cost:+document.getElementById('levAnnualCost-'+id)?.value||0,
+      });
+    }else{
+      list.push({
+        name:document.getElementById('levName-'+id)?.value||'イベント',
+        type:'once',
+        age:+document.getElementById('levAge-'+id)?.value||45,
+        cost:+document.getElementById('levCost-'+id)?.value||0,
+      });
+    }
   });
   return list;
 }
@@ -2439,8 +2476,11 @@ function runSim(){
       invBalances[i]=invBalances[i]*(1+inv.rate)+contrib;
       totalInvBalance+=invBalances[i];
     });
-    // ライフイベント（指定年齢に一時出費）
-    const lifeEventCost=lifeEvents.filter(e=>e.age===selfCurAge).reduce((s,e)=>s+e.cost,0);
+    // ライフイベント（単発：指定年齢に一時出費／継続：支払い期間中は毎年発生）
+    const lifeEventCost=lifeEvents.filter(e=>e.type==='recurring'
+      ?(selfCurAge>=e.startAge&&selfCurAge<=e.endAge)
+      :e.age===selfCurAge
+    ).reduce((s,e)=>s+e.cost,0);
     // 追加借入返済（完済年月まで・定額返済として計上）
     const simYear=getPlanYM().y+y;
     const loanExtraAnnual=loanExtras.reduce((s,l)=>{
@@ -3685,6 +3725,7 @@ function buildPdfInputSummary(){
     livRows+=row('🎭 娯楽・交際',`娯楽 ${yen(nv('cLeisure'))}　交際 ${yen(nv('cSocial'))}　小遣い ${yen(nv('cAllowance'))}　旅行 ${yen(nv('cTravel'))}`);
     livRows+=row('🏥 医療・その他',`医療 ${yen(nv('cMedical'))}　衣服 ${yen(nv('cClothing'))}　雑費 ${yen(nv('cOther'))}`);
   }
+  if(nv('cSavings')>0)livRows+=row('💰 意識的な貯金（月額）',yen(nv('cSavings')));
   livRows+=row('現役期 月額合計',yen(livingM)+`（年 ${yen(livingM*12)}）`);
   livRows+=row('老後 月額生活費',yen(nv('retireLiving')));
   const fixedTaxTotal=(nv('fixedTax')||0)+(nv('cityTax')||0);
@@ -3693,7 +3734,10 @@ function buildPdfInputSummary(){
   // 6. ライフイベント・各種ローン
   const events=getLifeEvents();
   let evRows='';
-  events.forEach(e=>{evRows+=row(e.name+'（本人'+e.age+'歳）',yen(e.cost));});
+  events.forEach(e=>{
+    if(e.type==='recurring')evRows+=row(e.name+'（本人'+e.startAge+'〜'+e.endAge+'歳・継続）',yen(e.cost)+'/年');
+    else evRows+=row(e.name+'（本人'+e.age+'歳）',yen(e.cost));
+  });
   const loans=(typeof getLoanExtras==='function')?getLoanExtras():[];
   loans.forEach((l,i)=>{evRows+=row((l.name||('借入'+(i+1)))+'（月返済）',yen(l.monthly)+(l.endY?'　完済 '+l.endY+'年'+(l.endM||12)+'月':''));});
   if(!evRows)evRows=row('登録','ライフイベント・その他借入なし');
