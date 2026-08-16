@@ -3891,8 +3891,10 @@ function closePrintPreview(){
 }
 
 function executePrint(){
+  // iOS/iPadOS Safari は setTimeout を挟むとユーザー操作の許可が切れて print() が無視されるため、
+  // タップと同じ処理の流れの中で直接呼ぶ。印刷中のオーバーレイは @media print 側で非表示になる。
+  window.print();
   closePrintPreview();
-  setTimeout(()=>window.print(),100);
 }
 
 function swTab(name,btn){
