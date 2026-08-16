@@ -3829,8 +3829,12 @@ function exportPDF(){
   const charts=[chartInst,reqChartInst,reqTimelineInst].filter(Boolean);
   charts.forEach(c=>c.resize());
 
-  // プレビューモーダルを開く
-  setTimeout(()=>openPrintPreview(),300);
+  // ブラウザ標準の印刷プレビューを開く。拡大縮小・ページ送り・PDF保存はそちらで行える。
+  // 独自プレビュー（openPrintPreview）は #results を cloneNode で複製するため、
+  // Safari が印刷を無反応のまま終了させる。⌘P と同じ経路に寄せることで確実に動かす。
+  // setTimeout を挟むとユーザー操作の許可が切れて print() が無視されるので同期的に呼ぶ。
+  document.body.offsetHeight; // レイアウトを確定させてから印刷
+  window.print();
 }
 
 let _ppZoom=1.0;
