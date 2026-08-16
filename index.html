@@ -3772,6 +3772,19 @@ function buildPdfInputSummary(){
     block('🏦 資金・資産',asRows);
 }
 
+// 印刷が実際に始まったかを検知する。beforeprint / afterprint / matchMedia('print') の
+// いずれかが動けば「開いた」と判断できるので、無反応だった場合だけ代替経路に回せる。
+let _printEngaged=false;
+function _markPrintEngaged(){_printEngaged=true;}
+window.addEventListener('beforeprint',_markPrintEngaged);
+window.addEventListener('afterprint',_markPrintEngaged);
+if(window.matchMedia){
+  const _mqPrint=window.matchMedia('print');
+  const _onMqPrint=e=>{if(e.matches)_markPrintEngaged();};
+  if(_mqPrint.addEventListener)_mqPrint.addEventListener('change',_onMqPrint);
+  else if(_mqPrint.addListener)_mqPrint.addListener(_onMqPrint);
+}
+
 function exportPDF(){
   // PDFヘッダー情報をセット
   const selfN=getSelfName(),spN=getSpName();
@@ -3834,7 +3847,75 @@ function exportPDF(){
   // Safari が印刷を無反応のまま終了させる。⌘P と同じ経路に寄せることで確実に動かす。
   // setTimeout を挟むとユーザー操作の許可が切れて print() が無視されるので同期的に呼ぶ。
   document.body.offsetHeight; // レイアウトを確定させてから印刷
-  window.print();
+  _printEngaged=false;
+  let printCalled=true;
+  try{window.print();}catch(e){printCalled=false;console.warn('window.print() が失敗しました',e);}
+  // 環境によっては window.print() が例外も出さずに無視される（ボタンが無反応に見える）。
+  // print() はダイアログが閉じるまで同期的にブロックするので、ここに来た時点で
+  // 印刷が始まった形跡が無ければ呼び出しが握り潰されたと判断し、iframe 経由で印刷し直す。
+  setTimeout(()=>{
+    if(!printCalled||!_printEngaged)printViaIframe();
+  },500);
+}
+
+// フォールバック：印刷対象を非表示 iframe に複製して、その iframe を印刷する。
+// ポップアップブロックの影響を受けず、本体の window.print() が無視される環境でも動く。
+function printViaIframe(){
+  const src=document.getElementById('results');
+  if(!src){alert('先にシミュレーションを実行してください。');return;}
+
+  const old=document.getElementById('pdfPrintFrame');
+  if(old)old.remove();
+
+  const clone=src.cloneNode(true);
+  // canvas は cloneNode では中身がコピーされないので、画像に差し替える
+  const origCanvases=src.querySelectorAll('canvas');
+  const cloneCanvases=clone.querySelectorAll('canvas');
+  origCanvases.forEach((oc,i)=>{
+    const cc=cloneCanvases[i];
+    // 幅・高さ 0 の canvas（一度も表示されていないグラフ）は toDataURL が空になるので触らない
+    if(!cc||!oc.width||!oc.height)return;
+    try{
+      const img=document.createElement('img');
+      img.src=oc.toDataURL('image/png');
+      img.style.width='100%';
+      img.style.height='auto';
+      cc.replaceWith(img);
+    }catch(e){/* 変換できない canvas はそのまま残す */}
+  });
+
+  // 本体のスタイル（@page / @media print 定義を含む）をそのまま持ち込む
+  const styles=[...document.querySelectorAll('style,link[rel="stylesheet"]')]
+    .map(n=>n.outerHTML).join('\n');
+
+  const iframe=document.createElement('iframe');
+  iframe.id='pdfPrintFrame';
+  iframe.setAttribute('aria-hidden','true');
+  iframe.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(iframe);
+
+  const doc=iframe.contentWindow.document;
+  doc.open();
+  doc.write('<!doctype html><html lang="ja"><head><meta charset="utf-8">'+styles+
+    '<style>body{background:#fff;margin:0;padding:0}#results{display:block!important}</style>'+
+    '</head><body>'+clone.outerHTML+'</body></html>');
+  doc.close();
+
+  // data URL の画像が読み込まれる前に印刷するとグラフが白紙になるため待つ
+  const waitImages=(cb,tries=0)=>{
+    const imgs=[...doc.images];
+    if(imgs.every(im=>im.complete)||tries>40){cb();return;}
+    setTimeout(()=>waitImages(cb,tries+1),50);
+  };
+  waitImages(()=>{
+    try{
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    }catch(e){
+      alert('PDF出力の画面を開けませんでした。お手数ですが ⌘P（Windows は Ctrl+P）で印刷ダイアログを開き、送信先を「PDFに保存」にしてください。');
+    }
+    setTimeout(()=>iframe.remove(),60000);
+  });
 }
 
 let _ppZoom=1.0;
