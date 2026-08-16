@@ -3891,10 +3891,13 @@ function closePrintPreview(){
 }
 
 function executePrint(){
-  // iOS/iPadOS Safari は setTimeout を挟むとユーザー操作の許可が切れて print() が無視されるため、
-  // タップと同じ処理の流れの中で直接呼ぶ。印刷中のオーバーレイは @media print 側で非表示になる。
-  window.print();
+  // Safari 対策で以下の2点を同時に満たす必要がある。
+  //  1. 先にプレビューを閉じ、cloneNode で作った #results の複製をDOMから除去してから印刷する
+  //     （複製が残ったままだと canvas を含むページ全体が二重になり Safari の印刷処理が無反応になる）
+  //  2. setTimeout を挟まず、クリックと同じ処理の流れの中で同期的に print() を呼ぶ
+  //     （非同期にするとユーザー操作の許可が切れて print() が無視される）
   closePrintPreview();
+  window.print();
 }
 
 function swTab(name,btn){
