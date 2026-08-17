@@ -228,7 +228,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{background:#fff;font-size:11px;margin:0;padding:0}
   .pdf-cover{height:245mm;min-height:0!important;max-height:245mm;padding:14mm 14mm!important;overflow:hidden!important}
-  .pdf-cover .cv-title{font-size:38px!important}
+  /* グラデーション文字（background-clip:text）は印刷時に文字の一部が塗られないため単色にする */
+  .pdf-cover .cv-title{font-size:38px!important;
+    background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;
+    -webkit-text-fill-color:#1d8fc4!important;color:#1d8fc4!important}
   .pdf-cover .cv-name{font-size:28px!important}
   .pdf-cover .cv-name .cv-sama{font-size:18px!important}
   .pdf-cover .cv-name-wrap{margin-top:32px!important;padding:18px 40px!important}
@@ -278,6 +281,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 #printPreviewPage canvas{width:100%!important;height:auto!important}
 #printPreviewPage table{width:100%;table-layout:fixed;word-break:break-all}
 #printPreviewPage .cft-wrap,#printPreviewPage .chart-wrap,#printPreviewPage .req-chart-wrap{overflow:hidden;width:100%}
+/* 実際の印刷結果と同じ単色タイトルで見せる */
+#printPreviewPage .pdf-cover .cv-title{background:none;-webkit-background-clip:border-box;background-clip:border-box;
+  -webkit-text-fill-color:#1d8fc4;color:#1d8fc4}
 @media print{#printPreviewOverlay{display:none!important}}
 /* PDF表紙（印刷時のみ表示） */
 .pdf-cover{display:none;flex-direction:column;justify-content:space-between;min-height:96vh;page-break-after:always;box-sizing:border-box;padding:44px 40px 36px;position:relative;overflow:hidden;
